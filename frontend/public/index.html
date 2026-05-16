@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="GoalIQ — AI-powered football predictions, live scores, standings and match analysis." />
+  <title>GoalIQ | AI Football Predictions</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ── Navbar ────────────────────────────────────────────────────────────── -->
+<nav class="navbar" role="banner">
+  <div class="container navbar-inner">
+    <a href="/" class="logo">GOAL<span>IQ</span></a>
+    <div id="authArea"></div>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <h1 class="hero-title">
+    <span class="accent">AI</span> Football<br>
+    <span class="green">Predictions</span>
+  </h1>
+  <p class="hero-sub">Claude-powered match analysis · Live scores · League standings</p>
+  <div class="hero-badges">
+    <span class="hero-badge">⚽ Premier League</span>
+    <span class="hero-badge">⭐ Champions League</span>
+    <span class="hero-badge">🇪🇸 La Liga</span>
+    <span class="hero-badge">🇩🇪 Bundesliga</span>
+    <span class="hero-badge">🇮🇹 Serie A</span>
+    <span class="hero-badge">🇫🇷 Ligue 1</span>
+  </div>
+</section>
+
+<!-- ── Main Content ──────────────────────────────────────────────────────── -->
+<main class="container" id="main">
+
+  <!-- Tabs -->
+  <div class="main-tabs" role="tablist">
+    <button class="tab-btn active" data-tab="predict"     onclick="switchTab('predict')"     role="tab">⚽ Predict</button>
+    <button class="tab-btn"        data-tab="live"        onclick="switchTab('live')"        role="tab">🔴 Live</button>
+    <button class="tab-btn"        data-tab="standings"   onclick="switchTab('standings')"   role="tab">📊 Standings</button>
+    <button class="tab-btn"        data-tab="leaderboard" onclick="switchTab('leaderboard')" role="tab">🏅 Board</button>
+    <button class="tab-btn"        data-tab="chat"        onclick="switchTab('chat')"        role="tab">🤖 AI Chat</button>
+  </div>
+
+  <!-- ─ PREDICT ─ -->
+  <section id="tab-predict" class="tab-section active" role="tabpanel">
+    <div class="section-title">Upcoming Fixtures</div>
+
+    <div class="league-filters" role="group" aria-label="Filter by league">
+      <button class="league-filter-btn active" onclick="filterLeague(this,'all')">All</button>
+      <button class="league-filter-btn" onclick="filterLeague(this,'epl')">🏴󠁧󠁢󠁥󠁮󠁧󠁿 EPL</button>
+      <button class="league-filter-btn" onclick="filterLeague(this,'ucl')">⭐ UCL</button>
+      <button class="league-filter-btn" onclick="filterLeague(this,'la')">🇪🇸 La Liga</button>
+      <button class="league-filter-btn" onclick="filterLeague(this,'bun')">🇩🇪 Bundesliga</button>
+      <button class="league-filter-btn" onclick="filterLeague(this,'sa')">🇮🇹 Serie A</button>
+      <button class="league-filter-btn" onclick="filterLeague(this,'l1')">🇫🇷 Ligue 1</button>
+    </div>
+
+    <div id="matchGrid" aria-live="polite"></div>
+
+    <button id="predictBtn" onclick="runPrediction()" aria-label="Generate AI prediction for selected match">
+      🧠 Generate AI Prediction
+    </button>
+
+    <!-- Prediction Result Panel -->
+    <div id="predPanel" aria-live="polite" aria-label="AI Prediction Result">
+      <div class="pred-header">
+        <div id="predMatchLabel"></div>
+        <span class="ai-model-tag">AI MODEL v3.2</span>
+      </div>
+
+      <div id="probBarsContainer"></div>
+
+      <div class="verdict-box">
+        <div id="verdictContent"></div>
+      </div>
+
+      <div class="key-stats-grid" id="keyStatsGrid"></div>
+
+      <div class="conf-row">
+        <span class="conf-row-label">Model confidence</span>
+        <div class="conf-track"><div class="conf-fill" id="confBarFill" style="width:0%"></div></div>
+        <span class="conf-pct" id="confLabel">0%</span>
+      </div>
+
+      <div class="pred-actions">
+        <button id="savePredBtn" class="btn btn-outline auth-only" style="display:none" aria-label="Save prediction">💾 Save</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('chatInput').value='Tell me more about this match'; switchTab(\'chat\'); sendChatMessage()">Ask AI more →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─ LIVE ─ -->
+  <section id="tab-live" class="tab-section" role="tabpanel">
+    <div class="section-title">Live Matches</div>
+    <div id="liveGrid">
+      <div class="loading-state"><div class="spinner"></div><p>Loading live scores...</p></div>
+    </div>
+    <div style="text-align:center;margin-top:1rem">
+      <button class="btn btn-outline" onclick="loadLive()">↻ Refresh</button>
+    </div>
+  </section>
+
+  <!-- ─ STANDINGS ─ -->
+  <section id="tab-standings" class="tab-section" role="tabpanel">
+    <div class="section-title">League Standings</div>
+
+    <div class="standings-league-tabs" role="group" aria-label="Choose league for standings">
+      <button class="standings-league-btn active" data-league="epl"  onclick="loadStandings('epl')">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</button>
+      <button class="standings-league-btn"        data-league="ucl"  onclick="loadStandings('ucl')">⭐ Champions League</button>
+      <button class="standings-league-btn"        data-league="la"   onclick="loadStandings('la')">🇪🇸 La Liga</button>
+      <button class="standings-league-btn"        data-league="bun"  onclick="loadStandings('bun')">🇩🇪 Bundesliga</button>
+      <button class="standings-league-btn"        data-league="sa"   onclick="loadStandings('sa')">🇮🇹 Serie A</button>
+    </div>
+
+    <div class="standings-table-wrap">
+      <table class="standings-table" aria-label="League standings table">
+        <thead>
+          <tr>
+            <th>#</th><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th><th>Form</th>
+          </tr>
+        </thead>
+        <tbody id="standingsBody">
+          <tr><td colspan="9" class="loading-cell"><div class="spinner" style="margin:auto"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:0.5rem;display:flex;gap:1rem;flex-wrap:wrap">
+      <span><span style="color:var(--blue)">■</span> UCL qualification</span>
+      <span><span style="color:var(--green-l)">■</span> UEL qualification</span>
+      <span><span style="color:var(--red)">■</span> Relegation zone</span>
+    </div>
+  </section>
+
+  <!-- ─ LEADERBOARD ─ -->
+  <section id="tab-leaderboard" class="tab-section" role="tabpanel">
+    <div class="section-title">Prediction Leaderboard</div>
+    <div id="leaderboardList">
+      <div class="loading-state"><div class="spinner"></div></div>
+    </div>
+    <p style="font-size:0.78rem;color:var(--muted);margin-top:0.75rem;text-align:center">
+      Points awarded for correct predictions. <button class="btn btn-ghost" style="font-size:0.78rem" onclick="Auth.openModal('register')">Sign up</button> to join!
+    </p>
+  </section>
+
+  <!-- ─ CHAT ─ -->
+  <section id="tab-chat" class="tab-section" role="tabpanel">
+    <div class="section-title">Ask GoalIQ AI</div>
+    <div class="chat-wrapper">
+      <div id="chatMessages" aria-live="polite" role="log" aria-label="Chat messages">
+        <div class="chat-msg ai">
+          <span class="chat-sender">GoalIQ AI</span>
+          <div class="chat-bubble">
+            Hello! I'm GoalIQ, your football intelligence assistant. Ask me anything — match predictions, team form, tactics, injury news, or transfer rumours. ⚽
+          </div>
+        </div>
+      </div>
+      <div id="chatChips">
+        <div class="chip">Who will win the title?</div>
+        <div class="chip">Best teams in form?</div>
+        <div class="chip">Top scorer this season?</div>
+        <div class="chip">Champions League favourites?</div>
+        <div class="chip">Biggest upsets this season?</div>
+      </div>
+      <div class="chat-input-row">
+        <input id="chatInput" class="form-input" type="text" placeholder="Ask anything about football..." aria-label="Chat input" onkeydown="if(event.key==='Enter')sendChatMessage()" />
+        <button id="chatSendBtn" onclick="sendChatMessage()" aria-label="Send message">Send</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Auth Modal ────────────────────────────────────────────────────────── -->
+<div id="authModal" role="dialog" aria-modal="true" aria-label="Login or Register" onclick="if(event.target===this)Auth.closeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Welcome to GoalIQ</h2>
+      <button class="modal-close" onclick="Auth.closeModal()" aria-label="Close modal">✕</button>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login"    onclick="Auth.switchAuthTab('login')">Log In</button>
+      <button class="auth-tab"        data-tab="register" onclick="Auth.switchAuthTab('register')">Sign Up</button>
+    </div>
+
+    <!-- Login -->
+    <div id="loginForm">
+      <div class="form-group">
+        <label class="form-label" for="loginEmail">Email</label>
+        <input id="loginEmail" class="form-input" type="email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="loginPassword">Password</label>
+        <input id="loginPassword" class="form-input" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <p id="loginError" class="auth-error" role="alert"></p>
+      <button class="btn btn-primary form-submit" onclick="Auth.doLogin(event)">Log In</button>
+    </div>
+
+    <!-- Register -->
+    <div id="registerForm" style="display:none">
+      <div class="form-group">
+        <label class="form-label" for="regUsername">Username</label>
+        <input id="regUsername" class="form-input" type="text" placeholder="e.g. goalmaster99" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="regEmail">Email</label>
+        <input id="regEmail" class="form-input" type="email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="regPassword">Password</label>
+        <input id="regPassword" class="form-input" type="password" placeholder="Min. 6 characters" autocomplete="new-password" />
+      </div>
+      <p id="registerError" class="auth-error" role="alert"></p>
+      <button class="btn btn-primary form-submit" onclick="Auth.doRegister(event)">Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────────────────────── -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- ── Footer ────────────────────────────────────────────────────────────── -->
+<footer>
+  <p>⚽ <strong>GoalIQ</strong> — AI Football Intelligence &nbsp;|&nbsp; <a href="#">Privacy</a> &nbsp;|&nbsp; <a href="#">Terms</a></p>
+  <p class="disclaimer">Predictions are AI-generated for entertainment purposes only. Not financial or betting advice. Please gamble responsibly.</p>
+</footer>
+
+<!-- ── Scripts ────────────────────────────────────────────────────────────── -->
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

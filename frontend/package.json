@@ -1,0 +1,9 @@
+{
+  "name": "goaliq-frontend",
+  "version": "1.0.0",
+  "description": "GoalIQ Football Prediction Frontend",
+  "scripts": {
+    "dev": "python3 -m http.server 3000 --directory public",
+    "serve": "npx serve public -p 3000"
+  }
+}
