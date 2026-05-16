@@ -2,7 +2,7 @@ const axios = require('axios');
 const Match = require('../models/Match');
 const Standing = require('../models/Standing');
 
-const FOOTBALL_API = 'https://v3.football.api-sports.io';
+const FOOTBALL_API = 'https://api-football-v1.p.rapidapi.com/v3';
 const API_KEY = process.env.FOOTBALL_API_KEY;
 
 const LEAGUES = {
@@ -15,7 +15,7 @@ const LEAGUES = {
 };
 
 const headers = {
-  'x-rapidapi-host': 'v3.football.api-sports.io',
+  'x-rapidapi-host': 'api-football-v1.p.rapidapi.com',
   'x-rapidapi-key': API_KEY,
 };
 
