@@ -1,6 +1,5 @@
 // GoalIQ API Client
-const API_BASE = 'https://goaliq-api.onrender.com/api';
-
+const API_BASE = 'https://goaliq.onrender.com/api';
 const api = {
   _token: localStorage.getItem('goaliq_token'),
 
