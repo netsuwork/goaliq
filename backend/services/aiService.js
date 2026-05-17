@@ -1,51 +1,56 @@
 const axios = require('axios');
 
-const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 async function generateMatchPrediction(match) {
-  const prompt = `You are a football analyst. Analyze this match and return ONLY a JSON object, no markdown, no extra text.
+  const prompt = `You are an expert football analyst. Analyze this Premier League match and return ONLY a valid JSON object with no extra text, no markdown, no backticks.
 
 Match: ${match.homeTeam} vs ${match.awayTeam}
 League: ${match.leagueName}
-Home form: ${match.stats?.homeForm || 'Unknown'}
-Away form: ${match.stats?.awayForm || 'Unknown'}
-Home goals avg: ${match.stats?.homeGoalsAvg || 0}
-Away goals avg: ${match.stats?.awayGoalsAvg || 0}
-Home odds: ${match.odds?.home || 2.5}
-Draw odds: ${match.odds?.draw || 3.2}
-Away odds: ${match.odds?.away || 3.0}
+Kickoff: ${match.kickoff}
+Home form (last 5): ${match.stats?.homeForm || 'Unknown'}
+Away form (last 5): ${match.stats?.awayForm || 'Unknown'}
+Home goals avg: ${match.stats?.homeGoalsAvg || 'Unknown'}
+Away goals avg: ${match.stats?.awayGoalsAvg || 'Unknown'}
 
-Return ONLY this JSON:
+Return ONLY this exact JSON structure:
 {
-  "probHome": <0-100>,
-  "probDraw": <0-100>,
-  "probAway": <0-100>,
-  "winner": "<home|draw|away>",
-  "confidence": <0-100>,
-  "xgHome": <float>,
-  "xgAway": <float>,
-  "btts": <0-100>,
-  "over25": <0-100>,
-  "scoreline": "<e.g. 2-1>",
-  "verdict": "<2-3 sentence analysis>"
+  "probHome": 45,
+  "probDraw": 25,
+  "probAway": 30,
+  "winner": "home",
+  "confidence": 72,
+  "xgHome": 1.8,
+  "xgAway": 1.2,
+  "btts": 55,
+  "over25": 62,
+  "scoreline": "2-1",
+  "verdict": "Your 2-3 sentence analysis here."
 }`;
 
   try {
     const response = await axios.post(
-      `${GEMINI_API}?key=${process.env.GEMINI_API_KEY}`,
+      `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`,
       {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 600 }
-      }
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 800,
+          responseMimeType: 'application/json',
+        },
+      },
+      { timeout: 30000 }
     );
 
-    const raw = response.data.candidates[0].content.parts[0].text.trim();
+    const raw = response.data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!raw) throw new Error('Empty response from Gemini');
+
     const clean = raw.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
 
-    // Normalize to 100
-    const total = parsed.probHome + parsed.probDraw + parsed.probAway;
-    if (total !== 100) {
+    // Normalize probabilities to sum to 100
+    const total = (parsed.probHome || 0) + (parsed.probDraw || 0) + (parsed.probAway || 0);
+    if (total !== 100 && total > 0) {
       const f = 100 / total;
       parsed.probHome = Math.round(parsed.probHome * f);
       parsed.probDraw = Math.round(parsed.probDraw * f);
@@ -53,6 +58,7 @@ Return ONLY this JSON:
     }
 
     return parsed;
+
   } catch (err) {
     console.error('Gemini prediction error:', err.response?.data || err.message);
     return fallbackPrediction(match);
@@ -60,32 +66,49 @@ Return ONLY this JSON:
 }
 
 async function chatWithAI(messages, context = '') {
-  const systemText = `You are GoalIQ, a world-class football analyst AI. Give sharp, data-driven insights on predictions, team form, tactics and transfers. Keep responses to 3-5 sentences. ${context ? 'Context: ' + context : ''}`;
+  const systemText = `You are GoalIQ, a world-class football analyst AI. You provide sharp, data-driven insights about football matches, team form, player performance, tactics, and transfers. Keep responses concise and engaging — 3 to 5 sentences max unless asked for more detail. Be confident but honest about uncertainty. ${context ? 'Context: ' + context : ''}`;
 
-  // Convert messages to Gemini format
-  const contents = messages.map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }]
-  }));
+  // Build conversation for Gemini
+  const geminiMessages = [];
 
-  // Add system as first user message if not present
-  if (contents[0]?.role !== 'user') {
-    contents.unshift({ role: 'user', parts: [{ text: systemText }] });
-    contents.splice(1, 0, { role: 'model', parts: [{ text: 'Understood! I am GoalIQ, ready to analyze football for you.' }] });
+  // Add system context as first exchange
+  geminiMessages.push({
+    role: 'user',
+    parts: [{ text: systemText + '\n\nAcknowledge you are ready.' }],
+  });
+  geminiMessages.push({
+    role: 'model',
+    parts: [{ text: 'Ready! I am GoalIQ, your football intelligence assistant. Ask me anything about football.' }],
+  });
+
+  // Add conversation history
+  for (const msg of messages) {
+    geminiMessages.push({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    });
   }
 
   try {
     const response = await axios.post(
-      `${GEMINI_API}?key=${process.env.GEMINI_API_KEY}`,
+      `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`,
       {
-        contents,
-        generationConfig: { temperature: 0.8, maxOutputTokens: 500 }
-      }
+        contents: geminiMessages,
+        generationConfig: {
+          temperature: 0.8,
+          maxOutputTokens: 600,
+        },
+      },
+      { timeout: 30000 }
     );
-    return response.data.candidates[0].content.parts[0].text;
+
+    const reply = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!reply) throw new Error('Empty chat response from Gemini');
+    return reply;
+
   } catch (err) {
     console.error('Gemini chat error:', err.response?.data || err.message);
-    throw new Error('AI service temporarily unavailable.');
+    throw new Error('AI service temporarily unavailable. Please try again.');
   }
 }
 
@@ -108,9 +131,10 @@ function fallbackPrediction(match) {
     confidence: 55,
     xgHome: parseFloat((Math.random() * 1.5 + 0.8).toFixed(1)),
     xgAway: parseFloat((Math.random() * 1.2 + 0.6).toFixed(1)),
-    btts: 50, over25: 55,
+    btts: 50,
+    over25: 55,
     scoreline: winner === 'home' ? '2-1' : winner === 'away' ? '1-2' : '1-1',
-    verdict: `Prediction based on current odds. ${match.homeTeam} are the home side in this ${match.leagueName} fixture.`,
+    verdict: `Based on current form, ${match.homeTeam} host ${match.awayTeam} in what promises to be a competitive ${match.leagueName} fixture. Home advantage could be a key factor in this match.`,
   };
 }
 
