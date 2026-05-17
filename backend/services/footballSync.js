@@ -33,7 +33,10 @@ async function syncMatches() {
       console.log('Fetching matches for ' + league.name);
       const { data } = await axios.get(BASE + '/competitions/' + league.id + '/matches', {
         headers,
-        params: { status: 'SCHEDULED,IN_PLAY,PAUSED,HALFTIME,FINISHED', limit: 30 },
+        params: {
+  dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0,10),
+  dateTo:   new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0,10),
+},
       });
       const matches = data.matches || [];
       for (const match of matches) {
