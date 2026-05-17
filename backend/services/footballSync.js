@@ -2,134 +2,115 @@ const axios = require('axios');
 const Match = require('../models/Match');
 const Standing = require('../models/Standing');
 
-const FOOTBALL_API = 'https://api-football-v1.p.rapidapi.com/v3';
-const API_KEY = process.env.FOOTBALL_API_KEY;
+const API_KEY = process.env.FOOTBALL_DATA_KEY;
+const BASE = 'https://api.football-data.org/v4';
+
+const headers = { 'X-Auth-Token': API_KEY };
 
 const LEAGUES = {
-  epl:  { id: 39,  name: 'Premier League',    season: 2024 },
-  ucl:  { id: 2,   name: 'Champions League',   season: 2024 },
-  la:   { id: 140, name: 'La Liga',            season: 2024 },
-  bun:  { id: 78,  name: 'Bundesliga',         season: 2024 },
-  sa:   { id: 135, name: 'Serie A',            season: 2024 },
-  l1:   { id: 61,  name: 'Ligue 1',            season: 2024 },
-};
-
-const headers = {
-  'x-rapidapi-host': 'api-football-v1.p.rapidapi.com',
-  'x-rapidapi-key': API_KEY,
+  epl: { id: 'PL',  name: 'Premier League'   },
+  ucl: { id: 'CL',  name: 'Champions League'  },
+  la:  { id: 'PD',  name: 'La Liga'           },
+  bun: { id: 'BL1', name: 'Bundesliga'        },
+  sa:  { id: 'SA',  name: 'Serie A'           },
+  l1:  { id: 'FL1', name: 'Ligue 1'           },
 };
 
 async function syncMatches() {
   if (!API_KEY) {
-    console.log('⚠️ No Football API key — using demo data');
+    console.log('⚠️ No Football Data key — using demo data');
     return seedDemoMatches();
   }
 
   for (const [leagueKey, league] of Object.entries(LEAGUES)) {
     try {
-      // Get upcoming fixtures
-      const { data } = await axios.get(`${FOOTBALL_API}/fixtures`, {
-        headers,
-        params: {
-          league: league.id,
-          season: league.season,
-          next: 5,
-        },
-      });
+      // Get upcoming matches
+      const { data } = await axios.get(
+        `${BASE}/competitions/${league.id}/matches`,
+        {
+          headers,
+          params: { status: 'SCHEDULED', limit: 10 },
+        }
+      );
 
-      for (const fixture of data.response || []) {
-        const f = fixture.fixture;
-        const teams = fixture.teams;
-        const goals = fixture.goals;
-
+      for (const match of data.matches || []) {
         await Match.findOneAndUpdate(
-          { externalId: String(f.id) },
+          { externalId: String(match.id) },
           {
-            externalId:   String(f.id),
+            externalId:   String(match.id),
             league:       leagueKey,
             leagueName:   league.name,
-            season:       String(league.season),
-            homeTeam:     teams.home.name,
-            awayTeam:     teams.away.name,
-            homeTeamLogo: teams.home.logo,
-            awayTeamLogo: teams.away.logo,
-            kickoff:      new Date(f.date),
-            status:       mapStatus(f.status.short),
+            homeTeam:     match.homeTeam.name,
+            awayTeam:     match.awayTeam.name,
+            homeTeamLogo: `https://crests.football-data.org/${match.homeTeam.id}.png`,
+            awayTeamLogo: `https://crests.football-data.org/${match.awayTeam.id}.png`,
+            kickoff:      new Date(match.utcDate),
+            status:       'upcoming',
             score: {
-              home: goals.home,
-              away: goals.away,
+              home: match.score?.fullTime?.home ?? null,
+              away: match.score?.fullTime?.away ?? null,
             },
           },
           { upsert: true, new: true }
         );
       }
 
-      // Get live fixtures
-      const { data: liveData } = await axios.get(`${FOOTBALL_API}/fixtures`, {
-        headers,
-        params: {
-          league: league.id,
-          season: league.season,
-          live: 'all',
-        },
-      });
+      // Get live matches
+      const { data: liveData } = await axios.get(
+        `${BASE}/competitions/${league.id}/matches`,
+        {
+          headers,
+          params: { status: 'IN_PLAY' },
+        }
+      );
 
-      for (const fixture of liveData.response || []) {
-        const f = fixture.fixture;
-        const teams = fixture.teams;
-        const goals = fixture.goals;
-
+      for (const match of liveData.matches || []) {
         await Match.findOneAndUpdate(
-          { externalId: String(f.id) },
+          { externalId: String(match.id) },
           {
-            externalId:   String(f.id),
+            externalId:   String(match.id),
             league:       leagueKey,
             leagueName:   league.name,
-            homeTeam:     teams.home.name,
-            awayTeam:     teams.away.name,
-            homeTeamLogo: teams.home.logo,
-            awayTeamLogo: teams.away.logo,
-            kickoff:      new Date(f.date),
+            homeTeam:     match.homeTeam.name,
+            awayTeam:     match.awayTeam.name,
+            homeTeamLogo: `https://crests.football-data.org/${match.homeTeam.id}.png`,
+            awayTeamLogo: `https://crests.football-data.org/${match.awayTeam.id}.png`,
+            kickoff:      new Date(match.utcDate),
             status:       'live',
             score: {
-              home: goals.home ?? 0,
-              away: goals.away ?? 0,
+              home: match.score?.fullTime?.home ?? 0,
+              away: match.score?.fullTime?.away ?? 0,
             },
           },
           { upsert: true, new: true }
         );
       }
 
-      // Get recent results (last 5)
-      const { data: resultsData } = await axios.get(`${FOOTBALL_API}/fixtures`, {
-        headers,
-        params: {
-          league: league.id,
-          season: league.season,
-          last: 5,
-        },
-      });
+      // Get recent results
+      const { data: resultsData } = await axios.get(
+        `${BASE}/competitions/${league.id}/matches`,
+        {
+          headers,
+          params: { status: 'FINISHED', limit: 5 },
+        }
+      );
 
-      for (const fixture of resultsData.response || []) {
-        const f = fixture.fixture;
-        const teams = fixture.teams;
-        const goals = fixture.goals;
-
+      for (const match of resultsData.matches || []) {
         await Match.findOneAndUpdate(
-          { externalId: String(f.id) },
+          { externalId: String(match.id) },
           {
-            externalId:   String(f.id),
+            externalId:   String(match.id),
             league:       leagueKey,
             leagueName:   league.name,
-            homeTeam:     teams.home.name,
-            awayTeam:     teams.away.name,
-            homeTeamLogo: teams.home.logo,
-            awayTeamLogo: teams.away.logo,
-            kickoff:      new Date(f.date),
+            homeTeam:     match.homeTeam.name,
+            awayTeam:     match.awayTeam.name,
+            homeTeamLogo: `https://crests.football-data.org/${match.homeTeam.id}.png`,
+            awayTeamLogo: `https://crests.football-data.org/${match.awayTeam.id}.png`,
+            kickoff:      new Date(match.utcDate),
             status:       'finished',
             score: {
-              home: goals.home,
-              away: goals.away,
+              home: match.score?.fullTime?.home ?? null,
+              away: match.score?.fullTime?.away ?? null,
             },
           },
           { upsert: true, new: true }
@@ -137,12 +118,11 @@ async function syncMatches() {
       }
 
       console.log(`✅ Synced ${league.name}`);
-
-      // Wait 1 second between leagues to avoid rate limiting
-      await new Promise(r => setTimeout(r, 1000));
+      // Wait 6 seconds between leagues to respect rate limits
+      await new Promise(r => setTimeout(r, 6000));
 
     } catch (err) {
-      console.error(`❌ Failed to sync ${league.name}:`, err.message);
+      console.error(`❌ Failed to sync ${league.name}:`, err.response?.data?.message || err.message);
     }
   }
 }
@@ -152,33 +132,33 @@ async function syncStandings() {
 
   for (const [leagueKey, league] of Object.entries(LEAGUES)) {
     try {
-      const { data } = await axios.get(`${FOOTBALL_API}/standings`, {
-        headers,
-        params: { league: league.id, season: league.season },
-      });
+      const { data } = await axios.get(
+        `${BASE}/competitions/${league.id}/standings`,
+        { headers }
+      );
 
-      const raw = data.response?.[0]?.league?.standings?.[0] || [];
+      const raw = data.standings?.[0]?.table || [];
       const table = raw.map(entry => ({
-        position: entry.rank,
+        position: entry.position,
         team:     entry.team.name,
-        teamLogo: entry.team.logo,
-        played:   entry.all.played,
-        won:      entry.all.win,
-        drawn:    entry.all.draw,
-        lost:     entry.all.lose,
-        gf:       entry.all.goals.for,
-        ga:       entry.all.goals.against,
-        gd:       entry.goalsDiff,
+        teamLogo: `https://crests.football-data.org/${entry.team.id}.png`,
+        played:   entry.playedGames,
+        won:      entry.won,
+        drawn:    entry.draw,
+        lost:     entry.lost,
+        gf:       entry.goalsFor,
+        ga:       entry.goalsAgainst,
+        gd:       entry.goalDifference,
         points:   entry.points,
         form:     entry.form || '',
       }));
 
       await Standing.findOneAndUpdate(
-        { league: leagueKey, season: String(league.season) },
+        { league: leagueKey },
         {
           league:     leagueKey,
           leagueName: league.name,
-          season:     String(league.season),
+          season:     '2024',
           table,
           updatedAt:  new Date(),
         },
@@ -186,19 +166,12 @@ async function syncStandings() {
       );
 
       console.log(`✅ Synced standings for ${league.name}`);
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 6000));
 
     } catch (err) {
-      console.error(`❌ Failed standings for ${league.name}:`, err.message);
+      console.error(`❌ Failed standings for ${league.name}:`, err.response?.data?.message || err.message);
     }
   }
-}
-
-function mapStatus(short) {
-  if (['1H','HT','2H','ET','P','LIVE'].includes(short)) return 'live';
-  if (['FT','AET','PEN'].includes(short)) return 'finished';
-  if (['PST','CANC','ABD'].includes(short)) return 'postponed';
-  return 'upcoming';
 }
 
 async function seedDemoMatches() {
@@ -238,11 +211,7 @@ async function seedDemoStandings() {
       { position:19,team:'Sheffield Utd',played:33, won:3,  drawn:5, lost:25, gf:25, ga:81, gd:-56, points:14, form:'LLLLL' },
     ]
   };
-  await Standing.findOneAndUpdate(
-    { league: 'epl', season: '2024' },
-    epl,
-    { upsert: true }
-  );
+  await Standing.findOneAndUpdate({ league: 'epl', season: '2024' }, epl, { upsert: true });
   console.log('✅ Demo standings seeded');
 }
 
