@@ -58,7 +58,7 @@ function renderMatches(matches) {
     const timeStr = kd.toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
     const hasPred = m.aiPrediction;
     return `
-      <div class="match-card ${selectedMatchId === m._id ? 'selected' : ''}" onclick="selectMatch('${m._id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter')selectMatch('${m._id}')">
+      <div class="match-card" onclick="goToMatch('${m._id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter')goToMatch('${m._id}')" style="cursor:pointer">
         <div class="match-card-meta">
           <span class="league-tag ${m.league}">${m.leagueName}</span>
           <span class="kickoff-time">${timeStr}</span>
@@ -81,8 +81,15 @@ function renderMatches(matches) {
           <div class="odd-pill"><span class="odd-l">X</span><span class="odd-v">${m.odds.draw.toFixed(2)}</span></div>
           <div class="odd-pill"><span class="odd-l">2</span><span class="odd-v">${m.odds.away.toFixed(2)}</span></div>
         </div>` : ''}
+        <div style="margin-top:0.75rem;text-align:right">
+          <span style="font-size:0.75rem;color:var(--green-l)">View Analysis →</span>
+        </div>
       </div>`;
   }).join('');
+}
+
+function goToMatch(id) {
+  window.location.href = `match.html?id=${id}`;
 }
 
 function selectMatch(id) {
