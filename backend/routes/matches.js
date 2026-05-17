@@ -4,13 +4,14 @@ const { protect, adminOnly } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/matches?league=epl&status=upcoming&limit=10
+// GET /api/matches?league=epl&status=upcoming&matchday=38&limit=20
 router.get('/', async (req, res) => {
   try {
-    const { league, status = 'upcoming', limit = 20, page = 1 } = req.query;
+    const { league, status, matchday, limit = 20, page = 1 } = req.query;
     const filter = {};
     if (league) filter.league = league;
     if (status) filter.status = status;
+    if (matchday) filter.matchday = Number(matchday);
 
     const total = await Match.countDocuments(filter);
     const matches = await Match.find(filter)
@@ -37,6 +38,41 @@ router.get('/live', async (req, res) => {
   }
 });
 
+// GET /api/matches/results?league=epl&matchday=38
+router.get('/results', async (req, res) => {
+  try {
+    const { league, matchday, limit = 20 } = req.query;
+    const filter = { status: 'finished' };
+    if (league) filter.league = league;
+    if (matchday) filter.matchday = Number(matchday);
+
+    const matches = await Match.find(filter)
+      .sort({ matchday: -1, kickoff: -1 })
+      .limit(Number(limit))
+      .populate('aiPrediction');
+
+    // Get available matchdays
+    const matchdays = await Match.distinct('matchday', { league: league || 'epl', status: 'finished' });
+    matchdays.sort((a, b) => b - a);
+
+    res.json({ matches, matchdays });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/matches/matchdays?league=epl
+router.get('/matchdays', async (req, res) => {
+  try {
+    const { league = 'epl' } = req.query;
+    const matchdays = await Match.distinct('matchday', { league });
+    matchdays.sort((a, b) => a - b);
+    res.json({ matchdays });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/matches/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -48,7 +84,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/matches (admin only — create manual match)
+// POST /api/matches (admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
     const match = await Match.create(req.body);
