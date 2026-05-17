@@ -387,3 +387,30 @@ input { font-family: var(--font-body); }
 footer { text-align: center; padding: 2.5rem 1rem 1.5rem; color: var(--muted); font-size: 0.78rem; border-top: 1px solid var(--border); margin-top: 3rem; }
 footer a { color: var(--green-l); text-decoration: none; }
 footer .disclaimer { margin-top: 0.5rem; font-size: 0.72rem; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+
+/* ── Profile Modal ─────────────────────────────────────────────── */
+#profileModal {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+#profileModal.open { display: flex; }
+.profile-avatar-big {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--green); color: #fff;
+  font-family: var(--font-head); font-size: 2rem;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 0.75rem;
+}
+.profile-name  { text-align: center; font-weight: 700; font-size: 1.2rem; margin-bottom: 0.2rem; }
+.profile-email { text-align: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 1.25rem; }
+.profile-stats-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-bottom: 0.5rem;
+}
+.profile-stat {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;
+}
+.profile-stat-val   { font-family: var(--font-head); font-size: 1.3rem; color: var(--accent); }
+.profile-stat-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; margin-top: 0.2rem; }
