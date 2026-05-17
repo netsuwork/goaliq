@@ -9,11 +9,6 @@ const headers = { 'X-Auth-Token': API_KEY };
 
 const LEAGUES = {
   epl: { id: 'PL',  name: 'Premier League'   },
-  ucl: { id: 'CL',  name: 'Champions League'  },
-  la:  { id: 'PD',  name: 'La Liga'           },
-  bun: { id: 'BL1', name: 'Bundesliga'        },
-  sa:  { id: 'SA',  name: 'Serie A'           },
-  l1:  { id: 'FL1', name: 'Ligue 1'           },
 };
 
 async function syncMatches() {
