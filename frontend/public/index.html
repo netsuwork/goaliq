@@ -176,6 +176,42 @@
 
 </main>
 
+  <!-- ── Profile Modal ─────────────────────────────────────────── -->
+<div id="profileModal" role="dialog" aria-modal="true" onclick="if(event.target===this)Auth.closeProfileModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">My Profile</h2>
+      <button class="modal-close" onclick="Auth.closeProfileModal()">✕</button>
+    </div>
+    <div class="profile-avatar-big" id="profileAvatar">N</div>
+    <div class="profile-name" id="profileUsername">Username</div>
+    <div class="profile-email" id="profileEmail">email</div>
+    <div class="profile-stats-grid">
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="profilePoints">0</div>
+        <div class="profile-stat-label">Points</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="profileAccuracy">0%</div>
+        <div class="profile-stat-label">Accuracy</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="profileCorrect">0</div>
+        <div class="profile-stat-label">Correct</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="profileTotal">0</div>
+        <div class="profile-stat-label">Total</div>
+      </div>
+      <div class="profile-stat">
+        <div class="profile-stat-val" id="profileStreak">0</div>
+        <div class="profile-stat-label">Streak 🔥</div>
+      </div>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:1rem" onclick="Auth.doLogout();Auth.closeProfileModal()">Logout</button>
+  </div>
+</div>
+
 <!-- ── Auth Modal ────────────────────────────────────────────────────────── -->
 <div id="authModal" role="dialog" aria-modal="true" aria-label="Login or Register" onclick="if(event.target===this)Auth.closeModal()">
   <div class="modal-box">
