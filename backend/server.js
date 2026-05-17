@@ -25,7 +25,11 @@ app.use(cors({ origin: '*', credentials: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
  
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
+const limiter = rateLimit({ 
+  windowMs: 15 * 60 * 1000, 
+  max: 300,
+  validate: { xForwardedForHeader: false }
+});
 app.use('/api/', limiter);
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
 app.use('/api/predictions', aiLimiter);
