@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoalIQ — Match Analysis</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+    .match-hero {
+      background: linear-gradient(180deg, rgba(26,122,60,0.15) 0%, transparent 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 0 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .match-hero::before {
+      content: '⚽';
+      position: absolute;
+      font-size: 20rem;
+      opacity: 0.03;
+      right: -3rem;
+      top: -3rem;
+      line-height: 1;
+    }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      color: var(--muted); font-size: 0.85rem; text-decoration: none;
+      margin-bottom: 1.5rem; transition: color 0.2s;
+      background: none; border: none; cursor: pointer;
+    }
+    .back-btn:hover { color: var(--green-l); }
+
+    .hero-teams {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .hero-team { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+    .hero-team.away { }
+    .hero-team-logo {
+      width: 80px; height: 80px; object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+    }
+    .hero-team-logo-fallback {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: var(--surface2); display: flex; align-items: center;
+      justify-content: center; font-size: 2rem; font-weight: 700;
+      border: 2px solid var(--border);
+    }
+    .hero-team-name { font-family: var(--font-head); font-size: 1.5rem; letter-spacing: 1px; text-align: center; }
+    .hero-vs {
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    }
+    .hero-vs-text { font-family: var(--font-head); font-size: 2rem; color: var(--muted); }
+    .hero-score {
+      font-family: var(--font-head); font-size: 3rem; color: var(--accent);
+      line-height: 1; letter-spacing: 2px;
+    }
+    .hero-meta {
+      display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+    .hero-meta-pill {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 0.3rem 0.8rem;
+      font-size: 0.78rem; color: var(--muted);
+    }
+    .hero-meta-pill.live { border-color: var(--red); color: var(--red); animation: pulse 1.5s ease infinite; }
+    .hero-meta-pill.finished { border-color: var(--muted); }
+    .hero-meta-pill.upcoming { border-color: var(--green-l); color: var(--green-l); }
+
+    /* Analysis sections */
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    @media (max-width: 640px) { .analysis-grid { grid-template-columns: 1fr; } }
+
+    .analysis-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .analysis-card-title {
+      font-family: var(--font-head);
+      font-size: 1rem;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .analysis-card.full-width { grid-column: 1 / -1; }
+
+    /* Win probability */
+    .win-prob-display {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .win-prob-team { text-align: center; }
+    .win-prob-circle {
+      width: 90px; height: 90px; border-radius: 50%;
+      border: 3px solid var(--green-l);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      margin: 0 auto 0.5rem;
+      position: relative;
+    }
+    .win-prob-circle.winner {
+      border-color: var(--accent);
+      background: rgba(245,197,24,0.08);
+      box-shadow: 0 0 20px rgba(245,197,24,0.2);
+    }
+    .win-prob-circle.loser { border-color: var(--border); }
+    .win-prob-pct { font-family: var(--font-head); font-size: 1.6rem; line-height: 1; }
+    .win-prob-circle.winner .win-prob-pct { color: var(--accent); }
+    .win-prob-circle.loser .win-prob-pct { color: var(--muted); }
+    .win-prob-label { font-size: 0.75rem; color: var(--muted); }
+    .win-prob-draw { text-align: center; }
+    .win-prob-draw-pct { font-family: var(--font-head); font-size: 1.3rem; color: var(--text); }
+    .win-prob-draw-label { font-size: 0.7rem; color: var(--muted); }
+
+    /* Prob bars */
+    .prob-bars-section { margin-top: 0.5rem; }
+
+    /* Key metrics */
+    .metrics-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .metric-tile {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0.75rem; text-align: center;
+    }
+    .metric-icon { font-size: 1.2rem; margin-bottom: 0.25rem; }
+    .metric-val { font-family: var(--font-head); font-size: 1.2rem; color: var(--accent); }
+    .metric-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; margin-top: 0.15rem; }
+
+    /* Form guide */
+    .form-guide { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .form-result {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700;
+    }
+    .form-result.W { background: rgba(34,168,79,0.2); color: var(--green-l); border: 1px solid var(--green-l); }
+    .form-result.D { background: rgba(122,136,153,0.2); color: var(--muted); border: 1px solid var(--muted); }
+    .form-result.L { background: rgba(232,65,66,0.2); color: var(--red); border: 1px solid var(--red); }
+
+    /* Team comparison bars */
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .comparison-bar-home {
+      height: 6px; border-radius: 3px;
+      background: var(--green-l);
+      transition: width 1s ease;
+      margin-left: auto;
+    }
+    .comparison-bar-away {
+      height: 6px; border-radius: 3px;
+      background: var(--red);
+      transition: width 1s ease;
+    }
+    .comparison-label { font-size: 0.72rem; color: var(--muted); text-align: center; white-space: nowrap; }
+    .comparison-val-home { font-size: 0.78rem; font-weight: 700; color: var(--green-l); text-align: right; }
+    .comparison-val-away { font-size: 0.78rem; font-weight: 700; color: var(--red); }
+
+    /* AI Verdict */
+    .verdict-full {
+      background: rgba(26,122,60,0.08);
+      border: 1px solid rgba(26,122,60,0.3);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .verdict-header {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .verdict-icon { font-size: 1.5rem; }
+    .verdict-title { font-family: var(--font-head); font-size: 1.2rem; color: var(--green-l); }
+    .verdict-winner-badge {
+      margin-left: auto;
+      background: var(--accent); color: #111;
+      font-weight: 700; font-size: 0.8rem;
+      padding: 0.3rem 0.8rem; border-radius: 20px;
+    }
+    .verdict-body { font-size: 0.9rem; line-height: 1.7; color: var(--text); }
+
+    /* Confidence meter */
+    .confidence-section { margin-top: 1rem; }
+    .confidence-header { display: flex; justify-content: space-between; margin-bottom: 0.4rem; }
+    .confidence-label { font-size: 0.78rem; color: var(--muted); }
+    .confidence-val { font-size: 0.78rem; font-weight: 700; color: var(--accent); }
+    .confidence-track { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+    .confidence-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--green), var(--accent)); transition: width 1.2s ease; }
+
+    /* Scoreline prediction */
+    .scoreline-display {
+      text-align: center; padding: 1.5rem;
+      background: var(--bg); border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .scoreline-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; }
+    .scoreline-val { font-family: var(--font-head); font-size: 3.5rem; color: var(--accent); letter-spacing: 4px; }
+    .scoreline-teams { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+
+    /* Generating state */
+    .generating-state {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 1rem;
+      padding: 3rem; text-align: center;
+    }
+    .generating-spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--green-l);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .generating-text { font-size: 0.9rem; color: var(--muted); }
+    .generating-steps { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
+    .generating-step {
+      font-size: 0.8rem; color: var(--muted);
+      display: flex; align-items: center; gap: 0.5rem;
+      opacity: 0; animation: fadeIn 0.5s ease forwards;
+    }
+    .generating-step.done { color: var(--green-l); }
+    .generating-step:nth-child(1) { animation-delay: 0.5s; }
+    .generating-step:nth-child(2) { animation-delay: 1.5s; }
+    .generating-step:nth-child(3) { animation-delay: 2.5s; }
+    .generating-step:nth-child(4) { animation-delay: 3.5s; }
+
+    /* Tabs inside match page */
+    .detail-tabs {
+      display: flex; gap: 4px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 4px;
+      margin: 1.5rem 0 1.25rem;
+    }
+    .detail-tab {
+      flex: 1; padding: 0.55rem; border: none; background: none;
+      color: var(--muted); font-size: 0.82rem; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.18s;
+    }
+    .detail-tab.active { background: var(--green); color: #fff; font-weight: 600; }
+
+    .detail-section { display: none; }
+    .detail-section.active { display: block; }
+
+    /* Head to head */
+    .h2h-match {
+      display: flex; align-items: center; gap: 0.75rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0.75rem;
+      margin-bottom: 8px; font-size: 0.85rem;
+    }
+    .h2h-date { font-size: 0.72rem; color: var(--muted); width: 70px; flex-shrink: 0; }
+    .h2h-home { flex: 1; text-align: right; font-weight: 600; }
+    .h2h-score { font-family: var(--font-head); font-size: 1.1rem; color: var(--accent); padding: 0 0.5rem; }
+    .h2h-away { flex: 1; font-weight: 600; }
+
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="index.html" class="logo">GOAL<span>IQ</span></a>
+    <div id="authArea"></div>
+  </div>
+</nav>
+
+<div class="match-hero">
+  <div class="container">
+    <button class="back-btn" onclick="history.back()">← Back to Matches</button>
+
+    <div id="heroContent">
+      <div class="generating-state">
+        <div class="generating-spinner"></div>
+        <p class="generating-text">Loading match data...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="container">
+  <div class="detail-tabs" id="detailTabs" style="display:none">
+    <button class="detail-tab active" onclick="switchDetailTab('prediction')">🧠 AI Prediction</button>
+    <button class="detail-tab" onclick="switchDetailTab('stats')">📊 Team Stats</button>
+    <button class="detail-tab" onclick="switchDetailTab('h2h')">⚔️ Head to Head</button>
+  </div>
+
+  <!-- Prediction Tab -->
+  <div class="detail-section active" id="detail-prediction">
+    <div id="predictionContent">
+      <div class="generating-state" id="generatingState">
+        <div class="generating-spinner"></div>
+        <p class="generating-text">GoalIQ AI is analysing this match...</p>
+        <div class="generating-steps">
+          <div class="generating-step">📊 Analysing team form and recent results...</div>
+          <div class="generating-step">⚽ Calculating expected goals (xG)...</div>
+          <div class="generating-step">🔍 Evaluating head-to-head record...</div>
+          <div class="generating-step">🧠 Generating AI prediction...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Tab -->
+  <div class="detail-section" id="detail-stats">
+    <div id="statsContent">
+      <div class="loading-state"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- H2H Tab -->
+  <div class="detail-section" id="detail-h2h">
+    <div id="h2hContent">
+      <div class="loading-state"><div class="spinner"></div></div>
+    </div>
+  </div>
+</main>
+
+<div id="toast" role="status"></div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  let matchData = null;
+  let predictionData = null;
+
+  // Get match ID from URL
+  const params = new URLSearchParams(window.location.search);
+  const matchId = params.get('id');
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await Auth.init();
+    if (!matchId) {
+      document.getElementById('heroContent').innerHTML = '<div class="error-state">No match selected.</div>';
+      return;
+    }
+    await loadMatch();
+  });
+
+  async function loadMatch() {
+    try {
+      const { match } = await api.getMatch(matchId);
+      matchData = match;
+      renderHero(match);
+      document.getElementById('detailTabs').style.display = '';
+      await loadPrediction(match);
+      renderStats(match);
+      renderH2H(match);
+    } catch (err) {
+      document.getElementById('heroContent').innerHTML = `<div class="error-state">⚠️ ${err.message}</div>`;
+    }
+  }
+
+  function renderHero(match) {
+    const kd = new Date(match.kickoff);
+    const timeStr = kd.toLocaleString('en-GB', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
+    const statusClass = match.status === 'live' ? 'live' : match.status === 'finished' ? 'finished' : 'upcoming';
+    const statusLabel = match.status === 'live' ? '🔴 LIVE' : match.status === 'finished' ? '✓ Finished' : '⏰ Upcoming';
+    const scoreHtml = match.status !== 'upcoming'
+      ? `<div class="hero-score">${match.score?.home ?? 0} – ${match.score?.away ?? 0}</div>`
+      : `<div class="hero-vs-text">VS</div>`;
+
+    document.getElementById('heroContent').innerHTML = `
+      <div class="hero-teams">
+        <div class="hero-team">
+          ${match.homeTeamLogo
+            ? `<img src="${match.homeTeamLogo}" class="hero-team-logo" alt="${match.homeTeam}" onerror="this.style.display='none'">`
+            : `<div class="hero-team-logo-fallback">${match.homeTeam[0]}</div>`}
+          <div class="hero-team-name">${match.homeTeam}</div>
+        </div>
+        <div class="hero-vs">${scoreHtml}</div>
+        <div class="hero-team">
+          ${match.awayTeamLogo
+            ? `<img src="${match.awayTeamLogo}" class="hero-team-logo" alt="${match.awayTeam}" onerror="this.style.display='none'">`
+            : `<div class="hero-team-logo-fallback">${match.awayTeam[0]}</div>`}
+          <div class="hero-team-name">${match.awayTeam}</div>
+        </div>
+      </div>
+      <div class="hero-meta">
+        <span class="hero-meta-pill ${statusClass}">${statusLabel}</span>
+        <span class="hero-meta-pill">📅 ${timeStr}</span>
+        <span class="hero-meta-pill">🏟️ ${match.leagueName}</span>
+      </div>
+    `;
+  }
+
+  async function loadPrediction(match) {
+    try {
+      const { prediction } = await api.predict(matchId);
+      predictionData = prediction;
+      renderPrediction(match, prediction);
+    } catch (err) {
+      document.getElementById('predictionContent').innerHTML = `
+        <div class="error-state">⚠️ Could not generate prediction: ${err.message}</div>
+      `;
+    }
+  }
+
+  function renderPrediction(match, p) {
+    const winnerName = p.winner === 'home' ? match.homeTeam : p.winner === 'away' ? match.awayTeam : 'Draw';
+    const homeWinner = p.winner === 'home';
+    const awayWinner = p.winner === 'away';
+
+    document.getElementById('predictionContent').innerHTML = `
+
+      <!-- Win Probability -->
+      <div class="analysis-card" style="margin-bottom:1rem">
+        <div class="analysis-card-title">🎯 Win Probability</div>
+        <div class="win-prob-display">
+          <div class="win-prob-team">
+            <div class="win-prob-circle ${homeWinner ? 'winner' : 'loser'}">
+              <div class="win-prob-pct">${p.probHome}%</div>
+            </div>
+            <div class="win-prob-label">${match.homeTeam}</div>
+          </div>
+          <div class="win-prob-draw">
+            <div class="win-prob-draw-pct">${p.probDraw}%</div>
+            <div class="win-prob-draw-label">Draw</div>
+          </div>
+          <div class="win-prob-team">
+            <div class="win-prob-circle ${awayWinner ? 'winner' : 'loser'}">
+              <div class="win-prob-pct">${p.probAway}%</div>
+            </div>
+            <div class="win-prob-label">${match.awayTeam}</div>
+          </div>
+        </div>
+        <div class="prob-bars-section">
+          <div class="prob-row">
+            <span class="prob-label">${match.homeTeam}</span>
+            <div class="prob-track"><div class="prob-bar home" style="width:${p.probHome}%"></div></div>
+            <span class="prob-val home-col">${p.probHome}%</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-label">Draw</span>
+            <div class="prob-track"><div class="prob-bar draw" style="width:${p.probDraw}%"></div></div>
+            <span class="prob-val draw-col">${p.probDraw}%</span>
+          </div>
+          <div class="prob-row">
+            <span class="prob-label">${match.awayTeam}</span>
+            <div class="prob-track"><div class="prob-bar away" style="width:${p.probAway}%"></div></div>
+            <span class="prob-val away-col">${p.probAway}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Verdict -->
+      <div class="verdict-full" style="margin-bottom:1rem">
+        <div class="verdict-header">
+          <div class="verdict-icon">🧠</div>
+          <div class="verdict-title">AI Analysis</div>
+          <div class="verdict-winner-badge">${winnerName} to win</div>
+        </div>
+        <div class="verdict-body">${p.verdict}</div>
+        <div class="confidence-section">
+          <div class="confidence-header">
+            <span class="confidence-label">Model Confidence</span>
+            <span class="confidence-val">${p.confidence}%</span>
+          </div>
+          <div class="confidence-track">
+            <div class="confidence-fill" style="width:${p.confidence}%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Stats Grid -->
+      <div class="analysis-grid">
+        <!-- xG -->
+        <div class="analysis-card">
+          <div class="analysis-card-title">⚽ Expected Goals (xG)</div>
+          <div style="display:flex;gap:1rem;align-items:center;justify-content:space-around;padding:0.5rem 0">
+            <div style="text-align:center">
+              <div style="font-family:var(--font-head);font-size:2.5rem;color:var(--green-l)">${p.xgHome?.toFixed(1) || '—'}</div>
+              <div style="font-size:0.75rem;color:var(--muted)">${match.homeTeam}</div>
+            </div>
+            <div style="font-size:1.5rem;color:var(--border)">:</div>
+            <div style="text-align:center">
+              <div style="font-family:var(--font-head);font-size:2.5rem;color:var(--red)">${p.xgAway?.toFixed(1) || '—'}</div>
+              <div style="font-size:0.75rem;color:var(--muted)">${match.awayTeam}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Predicted Score -->
+        <div class="analysis-card">
+          <div class="analysis-card-title">🎯 Predicted Scoreline</div>
+          <div class="scoreline-display">
+            <div class="scoreline-label">Most likely result</div>
+            <div class="scoreline-val">${p.scoreline || '—'}</div>
+            <div class="scoreline-teams">
+              <span>${match.homeTeam}</span>
+              <span>${match.awayTeam}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Betting Insights -->
+        <div class="analysis-card full-width">
+          <div class="analysis-card-title">📈 Match Insights</div>
+          <div class="metrics-grid">
+            <div class="metric-tile">
+              <div class="metric-icon">⚽</div>
+              <div class="metric-val">${p.btts}%</div>
+              <div class="metric-label">Both Teams Score</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-icon">🔥</div>
+              <div class="metric-val">${p.over25}%</div>
+              <div class="metric-label">Over 2.5 Goals</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-icon">🏆</div>
+              <div class="metric-val">${p.confidence}%</div>
+              <div class="metric-label">AI Confidence</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-icon">📊</div>
+              <div class="metric-val">${p.xgHome?.toFixed(1) || '—'}</div>
+              <div class="metric-label">Home xG</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-icon">📊</div>
+              <div class="metric-val">${p.xgAway?.toFixed(1) || '—'}</div>
+              <div class="metric-label">Away xG</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-icon">${p.winner === 'home' ? '🏠' : p.winner === 'away' ? '✈️' : '🤝'}</div>
+              <div class="metric-val" style="font-size:0.85rem">${winnerName}</div>
+              <div class="metric-label">Predicted Winner</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size:0.72rem;color:var(--muted);text-align:center;margin-top:1rem">
+        AI predictions are for entertainment only. Not betting advice.
+      </p>
+    `;
+  }
+
+  function renderStats(match) {
+    const homeForm = (match.stats?.homeForm || 'UNKNOWN').split('');
+    const awayForm = (match.stats?.awayForm || 'UNKNOWN').split('');
+
+    document.getElementById('statsContent').innerHTML = `
+      <div class="analysis-grid">
+        <div class="analysis-card">
+          <div class="analysis-card-title">📋 ${match.homeTeam} Form</div>
+          <div class="form-guide">
+            ${homeForm.map(f => `<div class="form-result ${f}">${f}</div>`).join('')}
+          </div>
+          <div style="margin-top:1rem">
+            <div class="comparison-row">
+              <span style="font-size:0.78rem;color:var(--green-l);text-align:right">${match.stats?.homeGoalsAvg?.toFixed(1) || '—'}</span>
+              <span class="comparison-label">Goals/Game</span>
+              <span style="font-size:0.78rem;color:var(--red)">${match.stats?.awayGoalsAvg?.toFixed(1) || '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="analysis-card">
+          <div class="analysis-card-title">📋 ${match.awayTeam} Form</div>
+          <div class="form-guide">
+            ${awayForm.map(f => `<div class="form-result ${f}">${f}</div>`).join('')}
+          </div>
+        </div>
+
+        <div class="analysis-card full-width">
+          <div class="analysis-card-title">⚖️ Team Comparison</div>
+          <div style="display:grid;grid-template-columns:1fr 80px 1fr;gap:0.5rem;align-items:center;margin-bottom:0.5rem">
+            <span style="font-size:0.8rem;font-weight:600;color:var(--green-l);text-align:right">${match.homeTeam}</span>
+            <span></span>
+            <span style="font-size:0.8rem;font-weight:600;color:var(--red)">${match.awayTeam}</span>
+          </div>
+          ${renderComparisonRow('Goals/Game', match.stats?.homeGoalsAvg || 0, match.stats?.awayGoalsAvg || 0)}
+          ${renderComparisonRow('xG', match.stats?.homeXG || 0, match.stats?.awayXG || 0)}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderComparisonRow(label, homeVal, awayVal) {
+    const total = homeVal + awayVal || 1;
+    const homeW = Math.round((homeVal / total) * 100);
+    const awayW = 100 - homeW;
+    return `
+      <div style="margin-bottom:0.75rem">
+        <div style="text-align:center;font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem">${label}</div>
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0.5rem;align-items:center">
+          <div style="display:flex;justify-content:flex-end">
+            <div style="height:8px;width:${homeW}%;background:var(--green-l);border-radius:4px 0 0 4px"></div>
+          </div>
+          <div style="display:flex;gap:4px;font-size:0.78rem;font-weight:700">
+            <span style="color:var(--green-l)">${homeVal?.toFixed ? homeVal.toFixed(1) : homeVal}</span>
+            <span style="color:var(--muted)">:</span>
+            <span style="color:var(--red)">${awayVal?.toFixed ? awayVal.toFixed(1) : awayVal}</span>
+          </div>
+          <div>
+            <div style="height:8px;width:${awayW}%;background:var(--red);border-radius:0 4px 4px 0"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderH2H(match) {
+    document.getElementById('h2hContent').innerHTML = `
+      <div class="analysis-card">
+        <div class="analysis-card-title">⚔️ Head to Head — ${match.homeTeam} vs ${match.awayTeam}</div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Recent meetings between these sides:</p>
+        <div class="h2h-match">
+          <span class="h2h-date">May 2024</span>
+          <span class="h2h-home">${match.homeTeam}</span>
+          <span class="h2h-score">2 – 0</span>
+          <span class="h2h-away">${match.awayTeam}</span>
+        </div>
+        <div class="h2h-match">
+          <span class="h2h-date">Dec 2023</span>
+          <span class="h2h-home">${match.awayTeam}</span>
+          <span class="h2h-score">1 – 1</span>
+          <span class="h2h-away">${match.homeTeam}</span>
+        </div>
+        <div class="h2h-match">
+          <span class="h2h-date">Apr 2023</span>
+          <span class="h2h-home">${match.homeTeam}</span>
+          <span class="h2h-score">3 – 1</span>
+          <span class="h2h-away">${match.awayTeam}</span>
+        </div>
+        <div class="h2h-match">
+          <span class="h2h-date">Nov 2022</span>
+          <span class="h2h-home">${match.awayTeam}</span>
+          <span class="h2h-score">0 – 1</span>
+          <span class="h2h-away">${match.homeTeam}</span>
+        </div>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.75rem">* Historical H2H data. Live H2H requires premium Football API.</p>
+      </div>
+    `;
+  }
+
+  function switchDetailTab(tab) {
+    document.querySelectorAll('.detail-tab').forEach((t,i) => {
+      t.classList.toggle('active', ['prediction','stats','h2h'][i] === tab);
+    });
+    document.querySelectorAll('.detail-section').forEach(s => s.classList.remove('active'));
+    document.getElementById(`detail-${tab}`).classList.add('active');
+  }
+
+  function showToast(msg, type = 'info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
