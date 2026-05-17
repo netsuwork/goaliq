@@ -91,6 +91,10 @@ function selectMatch(id) {
   renderMatches(currentMatches);
 }
 
+function goToMatch(id) {
+  window.location.href = `match.html?id=${id}`;
+}
+
 function filterLeague(btn, league) {
   currentLeague = league;
   document.querySelectorAll('.league-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
