@@ -1,5 +1,6 @@
 // GoalIQ API Client
-const API_BASE = 'https://goaliq.onrender.com/api';
+const API_BASE = 'http://localhost:5000/api';
+
 const api = {
   _token: localStorage.getItem('goaliq_token'),
 
@@ -55,3 +56,7 @@ const api = {
   leaderboard:   ()       => api._fetch('/users/leaderboard'),
   updateProfile: (body)   => api._fetch('/users/me', { method: 'PATCH', body: JSON.stringify(body) }),
 };
+
+// Results & Matchdays (added)
+api.getResults   = (params) => api._fetch('/matches/results?' + new URLSearchParams(params));
+api.getMatchdays = (league) => api._fetch('/matches/matchdays?league=' + league);
