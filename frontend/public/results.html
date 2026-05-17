@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoalIQ — Results</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .results-header { padding: 2rem 0 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .results-title { font-family: var(--font-head); font-size: 2rem; letter-spacing: 1px; }
+    .results-title span { color: var(--green-l); }
+
+    /* Matchday selector */
+    .matchday-tabs {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-bottom: 1.5rem; padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .matchday-btn {
+      padding: 0.35rem 0.75rem; border: 1px solid var(--border);
+      border-radius: 20px; background: none; color: var(--muted);
+      font-size: 0.78rem; cursor: pointer; transition: all 0.18s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .matchday-btn.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+    .matchday-btn:hover:not(.active) { border-color: var(--green-l); color: var(--green-l); }
+
+    /* Result cards */
+    .result-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+      transition: border-color 0.18s;
+    }
+    .result-card:hover { border-color: rgba(34,168,79,0.3); }
+
+    .result-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.6rem 1rem; background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem; color: var(--muted);
+    }
+    .result-matchday { font-weight: 600; color: var(--text); }
+    .result-date { }
+    .result-venue { font-size: 0.68rem; }
+
+    .result-main {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 1rem; padding: 1rem 1.25rem;
+    }
+    .result-team { display: flex; align-items: center; gap: 0.6rem; }
+    .result-team.away { flex-direction: row-reverse; }
+    .result-team-logo {
+      width: 36px; height: 36px; object-fit: contain; flex-shrink: 0;
+    }
+    .result-team-logo-fallback {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--surface3); display: flex;
+      align-items: center; justify-content: center;
+      font-weight: 700; flex-shrink: 0;
+    }
+    .result-team-name { font-weight: 600; font-size: 0.95rem; }
+    .result-team.away .result-team-name { text-align: right; }
+
+    .result-score-box { text-align: center; }
+    .result-score {
+      font-family: var(--font-head); font-size: 2.2rem;
+      color: var(--accent); letter-spacing: 3px; line-height: 1;
+    }
+    .result-status {
+      font-size: 0.68rem; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-top: 0.2rem;
+    }
+    .result-status.live { color: var(--red); animation: pulse 1.5s ease infinite; }
+    .result-status.finished { color: var(--muted); }
+    .result-status.upcoming { color: var(--green-l); }
+
+    /* Goal scorers */
+    .result-goals {
+      padding: 0 1.25rem 0.75rem;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0.25rem;
+    }
+    .result-goals.no-goals { display: none; }
+    .goal-entry {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.78rem; color: var(--muted);
+    }
+    .goal-entry.away { flex-direction: row-reverse; text-align: right; }
+    .goal-minute {
+      background: var(--surface3); border-radius: 4px;
+      padding: 0.1rem 0.4rem; font-size: 0.68rem;
+      color: var(--accent); font-weight: 700; flex-shrink: 0;
+    }
+    .goal-scorer { font-weight: 500; color: var(--text); }
+    .goal-type-icon { font-size: 0.8rem; flex-shrink: 0; }
+    .goal-assist { font-size: 0.68rem; color: var(--muted); }
+
+    /* Result footer */
+    .result-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.5rem 1rem; border-top: 1px solid var(--border);
+      font-size: 0.72rem; color: var(--muted);
+    }
+    .result-referee { }
+    .result-link {
+      color: var(--green-l); cursor: pointer; text-decoration: none;
+      transition: color 0.18s;
+    }
+    .result-link:hover { color: var(--accent); }
+
+    /* Summary bar */
+    .matchday-summary {
+      display: flex; gap: 1rem; flex-wrap: wrap;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .summary-stat { text-align: center; flex: 1; min-width: 80px; }
+    .summary-stat-val { font-family: var(--font-head); font-size: 1.5rem; color: var(--accent); }
+    .summary-stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+
+    @media (max-width: 500px) {
+      .result-main { grid-template-columns: 1fr auto 1fr; gap: 0.5rem; }
+      .result-team-name { font-size: 0.8rem; }
+      .result-score { font-size: 1.6rem; }
+      .result-goals { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="index.html" class="logo">GOAL<span>IQ</span></a>
+    <div id="authArea"></div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="results-header">
+    <button class="back-btn" onclick="history.back()">← Back</button>
+    <div class="results-title">Premier League <span>Results</span></div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-top:0.25rem">Full results with goal scorers by matchday</p>
+  </div>
+
+  <!-- Matchday Tabs -->
+  <div class="matchday-tabs" id="matchdayTabs">
+    <div class="loading-state"><div class="spinner"></div></div>
+  </div>
+
+  <!-- Summary -->
+  <div class="matchday-summary" id="matchdaySummary" style="display:none">
+    <div class="summary-stat">
+      <div class="summary-stat-val" id="summaryMatches">0</div>
+      <div class="summary-stat-label">Matches</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-val" id="summaryGoals">0</div>
+      <div class="summary-stat-label">Goals</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-val" id="summaryAvg">0.0</div>
+      <div class="summary-stat-label">Goals/Match</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-val" id="summaryBtts">0</div>
+      <div class="summary-stat-label">BTTS</div>
+    </div>
+  </div>
+
+  <!-- Results Grid -->
+  <div id="resultsGrid">
+    <div class="loading-state"><div class="spinner"></div><p>Loading results...</p></div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  let currentMatchday = null;
+  let allMatchdays = [];
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await Auth.init();
+    await loadMatchdays();
+  });
+
+  async function loadMatchdays() {
+    try {
+      const { matchdays } = await api.getMatchdays('epl');
+      allMatchdays = matchdays.filter(m => m !== null).sort((a,b) => b - a);
+
+      if (!allMatchdays.length) {
+        document.getElementById('matchdayTabs').innerHTML = '<p style="color:var(--muted);font-size:0.85rem">No completed matchdays yet.</p>';
+        return;
+      }
+
+      renderMatchdayTabs(allMatchdays);
+      // Load latest matchday by default
+      await loadResults(allMatchdays[0]);
+    } catch (err) {
+      document.getElementById('matchdayTabs').innerHTML = `<div class="error-state">⚠️ ${err.message}</div>`;
+    }
+  }
+
+  function renderMatchdayTabs(matchdays) {
+    document.getElementById('matchdayTabs').innerHTML = matchdays.map(md => `
+      <button class="matchday-btn ${md === currentMatchday ? 'active' : ''}"
+        onclick="loadResults(${md})">
+        MD ${md}
+      </button>
+    `).join('');
+  }
+
+  async function loadResults(matchday) {
+    currentMatchday = matchday;
+    renderMatchdayTabs(allMatchdays);
+
+    const grid = document.getElementById('resultsGrid');
+    grid.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading matchday ' + matchday + '...</p></div>';
+
+    try {
+      const { matches } = await api.getResults({ league: 'epl', matchday });
+      if (!matches.length) {
+        grid.innerHTML = '<div class="empty-state">No results for Matchday ' + matchday + ' yet.</div>';
+        document.getElementById('matchdaySummary').style.display = 'none';
+        return;
+      }
+      renderSummary(matches);
+      renderResults(matches);
+    } catch (err) {
+      grid.innerHTML = `<div class="error-state">⚠️ ${err.message}</div>`;
+    }
+  }
+
+  function renderSummary(matches) {
+    const finished = matches.filter(m => m.status === 'finished');
+    const totalGoals = finished.reduce((sum, m) => sum + (m.score?.home || 0) + (m.score?.away || 0), 0);
+    const btts = finished.filter(m => (m.score?.home || 0) > 0 && (m.score?.away || 0) > 0).length;
+    const avg = finished.length ? (totalGoals / finished.length).toFixed(1) : '0.0';
+
+    document.getElementById('summaryMatches').textContent = finished.length;
+    document.getElementById('summaryGoals').textContent = totalGoals;
+    document.getElementById('summaryAvg').textContent = avg;
+    document.getElementById('summaryBtts').textContent = btts;
+    document.getElementById('matchdaySummary').style.display = '';
+  }
+
+  function renderResults(matches) {
+    const grid = document.getElementById('resultsGrid');
+    grid.innerHTML = matches.map(m => {
+      const kd = new Date(m.kickoff);
+      const dateStr = kd.toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+      const statusClass = m.status;
+      const statusLabel = m.status === 'live' ? '🔴 LIVE' : m.status === 'finished' ? 'Full Time' : kd.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+      // Split goals by team
+      const homeGoals = (m.goals || []).filter(g => g.team === m.homeTeam);
+      const awayGoals = (m.goals || []).filter(g => g.team === m.awayTeam);
+      const hasGoals = m.goals && m.goals.length > 0;
+
+      const goalTypeIcon = (type) => {
+        if (type === 'OWN_GOAL') return '🔴';
+        if (type === 'PENALTY') return '⚽P';
+        return '⚽';
+      };
+
+      const goalsHtml = hasGoals ? `
+        <div class="result-goals">
+          <div>
+            ${homeGoals.map(g => `
+              <div class="goal-entry">
+                <span class="goal-type-icon">${goalTypeIcon(g.type)}</span>
+                <div>
+                  <span class="goal-scorer">${g.scorer}</span>
+                  ${g.assist ? `<span class="goal-assist"> (${g.assist})</span>` : ''}
+                </div>
+                <span class="goal-minute">${g.minute}'${g.extraTime ? '+'+g.extraTime : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div>
+            ${awayGoals.map(g => `
+              <div class="goal-entry away">
+                <span class="goal-type-icon">${goalTypeIcon(g.type)}</span>
+                <div style="text-align:right">
+                  <span class="goal-scorer">${g.scorer}</span>
+                  ${g.assist ? `<span class="goal-assist"> (${g.assist})</span>` : ''}
+                </div>
+                <span class="goal-minute">${g.minute}'${g.extraTime ? '+'+g.extraTime : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      const scoreDisplay = m.status === 'upcoming'
+        ? `<div style="font-family:var(--font-head);font-size:1.1rem;color:var(--muted)">vs</div>`
+        : `<div class="result-score">${m.score?.home ?? '—'} – ${m.score?.away ?? '—'}</div>`;
+
+      return `
+        <div class="result-card">
+          <div class="result-card-header">
+            <span class="result-matchday">Matchday ${m.matchday || '—'}</span>
+            <span class="result-date">${dateStr}</span>
+            ${m.venue ? `<span class="result-venue">📍 ${m.venue}</span>` : ''}
+          </div>
+          <div class="result-main">
+            <div class="result-team">
+              ${m.homeTeamLogo
+                ? `<img src="${m.homeTeamLogo}" class="result-team-logo" alt="${m.homeTeam}" onerror="this.style.display='none'">`
+                : `<div class="result-team-logo-fallback">${m.homeTeam[0]}</div>`}
+              <span class="result-team-name">${m.homeTeam}</span>
+            </div>
+            <div class="result-score-box">
+              ${scoreDisplay}
+              <div class="result-status ${statusClass}">${statusLabel}</div>
+            </div>
+            <div class="result-team away">
+              ${m.awayTeamLogo
+                ? `<img src="${m.awayTeamLogo}" class="result-team-logo" alt="${m.awayTeam}" onerror="this.style.display='none'">`
+                : `<div class="result-team-logo-fallback">${m.awayTeam[0]}</div>`}
+              <span class="result-team-name">${m.awayTeam}</span>
+            </div>
+          </div>
+          ${goalsHtml}
+          <div class="result-footer">
+            ${m.referee ? `<span class="result-referee">👨‍⚖️ ${m.referee}</span>` : '<span></span>'}
+            <a class="result-link" href="match.html?id=${m._id}">Full Analysis →</a>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function showToast(msg, type = 'info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
