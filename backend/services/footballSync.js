@@ -105,7 +105,7 @@ async function syncLive() {
     try {
       const { data } = await axios.get(BASE + '/competitions/' + league.id + '/matches', {
         headers,
-        params: { status: 'IN_PLAY,PAUSED,HALFTIME' },
+        params: { status: 'LIVE' },
       });
       for (const match of data.matches || []) {
         await Match.findOneAndUpdate(
