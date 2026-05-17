@@ -1,4 +1,3 @@
-// Auth state & UI management
 const Auth = (() => {
   let currentUser = null;
 
@@ -26,7 +25,7 @@ const Auth = (() => {
 
   function renderUser(user) {
     document.getElementById('authArea').innerHTML = `
-      <div class="user-chip" onclick="Auth.openProfile()">
+      <div class="user-chip" onclick="Auth.openProfileModal()">
         <span class="user-avatar">${user.username[0].toUpperCase()}</span>
         <span class="user-name">${user.username}</span>
         <span class="user-pts">${user.stats?.points || 0} pts</span>
@@ -37,8 +36,7 @@ const Auth = (() => {
   }
 
   function openModal(tab = 'login') {
-    const modal = document.getElementById('authModal');
-    modal.classList.add('open');
+    document.getElementById('authModal').classList.add('open');
     switchAuthTab(tab);
   }
 
@@ -49,7 +47,7 @@ const Auth = (() => {
 
   function switchAuthTab(tab) {
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    document.getElementById('loginForm').style.display  = tab === 'login'    ? '' : 'none';
+    document.getElementById('loginForm').style.display    = tab === 'login'    ? '' : 'none';
     document.getElementById('registerForm').style.display = tab === 'register' ? '' : 'none';
   }
 
@@ -69,7 +67,7 @@ const Auth = (() => {
       currentUser = user;
       renderUser(user);
       closeModal();
-      showToast(`Welcome back, ${user.username}! ⚽`);
+      showToast(`Welcome back, ${user.username}! ⚽`, 'success');
     } catch (err) {
       errEl.textContent = err.message;
     }
@@ -88,7 +86,7 @@ const Auth = (() => {
       currentUser = user;
       renderUser(user);
       closeModal();
-      showToast(`Welcome to GoalIQ, ${user.username}! 🎉`);
+      showToast(`Welcome to GoalIQ, ${user.username}! 🎉`, 'success');
     } catch (err) {
       errEl.textContent = err.message;
     }
@@ -101,12 +99,28 @@ const Auth = (() => {
     showToast('Logged out successfully.');
   }
 
-  function openProfile() {
+  function openProfileModal() {
     if (!currentUser) return;
-    showToast(`${currentUser.username} — ${currentUser.stats?.points || 0} points · ${currentUser.stats?.predictionsCorrect || 0} correct predictions`);
+    const modal = document.getElementById('profileModal');
+    document.getElementById('profileUsername').textContent  = currentUser.username;
+    document.getElementById('profileEmail').textContent     = currentUser.email || '';
+    document.getElementById('profilePoints').textContent    = currentUser.stats?.points || 0;
+    document.getElementById('profileCorrect').textContent   = currentUser.stats?.predictionsCorrect || 0;
+    document.getElementById('profileTotal').textContent     = currentUser.stats?.predictionsTotal || 0;
+    document.getElementById('profileStreak').textContent    = currentUser.stats?.streak || 0;
+    const acc = currentUser.stats?.predictionsTotal
+      ? Math.round((currentUser.stats.predictionsCorrect / currentUser.stats.predictionsTotal) * 100)
+      : 0;
+    document.getElementById('profileAccuracy').textContent = acc + '%';
+    document.getElementById('profileAvatar').textContent   = currentUser.username[0].toUpperCase();
+    modal.classList.add('open');
+  }
+
+  function closeProfileModal() {
+    document.getElementById('profileModal').classList.remove('open');
   }
 
   function getUser() { return currentUser; }
 
-  return { init, openModal, closeModal, switchAuthTab, doLogin, doRegister, doLogout, openProfile, getUser };
+  return { init, openModal, closeModal, switchAuthTab, doLogin, doRegister, doLogout, openProfileModal, closeProfileModal, getUser };
 })();
