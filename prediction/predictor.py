@@ -1,6 +1,5 @@
-import numpy as np
-from dataclasses import dataclass
-from typing import List, Optional
+from math import exp, factorial
+from typing import Optional
 
 @dataclass
 class TeamStats:
