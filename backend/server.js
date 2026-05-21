@@ -14,7 +14,7 @@ const standingsRoutes  = require('./routes/standings');
 const chatRoutes       = require('./routes/chat');
 const userRoutes       = require('./routes/users');
 const teamRoutes = require('./routes/teams');
-app.use('/api/teams', teamRoutes);
+
 const { syncMatches, syncStandings, syncLive } = require('./services/footballSync');
  
 const app = express();
@@ -26,6 +26,7 @@ app.use(morgan('dev'));
 app.use(cors({ origin: '*', credentials: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/api/teams', teamRoutes);
  
 const limiter = rateLimit({ 
   windowMs: 15 * 60 * 1000, 
