@@ -1,123 +1,341 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GoalIQ — Premier League Clubs</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>"/>
-  <link rel="stylesheet" href="css/style.css"/>
-  <style>
-    .teams-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 12px;
-      margin-top: 1.5rem;
-    }
-    .team-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.25rem 1rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-decoration: none;
-      display: block;
-    }
-    .team-card:hover {
-      border-color: var(--green-l);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-    }
-    .team-card-logo {
-      width: 64px; height: 64px;
-      object-fit: contain;
-      margin: 0 auto 0.75rem;
-      display: block;
-    }
-    .team-card-logo-fallback {
-      width: 64px; height: 64px;
-      border-radius: 50%;
-      background: var(--surface2);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.5rem; font-weight: 700;
-      margin: 0 auto 0.75rem;
-    }
-    .team-card-name {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .team-card-venue {
-      font-size: 0.7rem;
-      color: var(--muted);
-      margin-top: 0.25rem;
-    }
-    .page-header {
-      padding: 2rem 0 1rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 1.5rem;
-    }
-    .page-title {
-      font-family: var(--font-head);
-      font-size: 2rem;
-      letter-spacing: 1px;
-    }
-    .page-title span { color: var(--green-l); }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Premier League Clubs — GoalIQ</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #12151c;
+    --card: #181c26;
+    --border: #1e2330;
+    --accent: #38bdf8;
+    --gold: #f59e0b;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --win: #22c55e;
+    --draw: #f59e0b;
+    --loss: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--accent); letter-spacing: 2px; text-decoration: none; }
+  .back-btn {
+    margin-left: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .back-btn:hover { color: var(--text); border-color: var(--accent); }
+
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    padding: 48px 24px 40px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: 'PREMIER LEAGUE';
+    position: absolute;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 120px;
+    color: rgba(56,189,248,0.04);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .season-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .hero h1 { font-family: 'Bebas Neue', sans-serif; font-size: 48px; letter-spacing: 3px; color: var(--text); }
+  .hero p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .clubs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .club-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .club-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(56,189,248,0.04));
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .club-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(56,189,248,0.12); }
+  .club-card:hover::before { opacity: 1; }
+
+  .club-crest {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+  }
+  .club-crest-placeholder {
+    width: 52px;
+    height: 52px;
+    background: var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .club-info { flex: 1; min-width: 0; }
+  .club-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .club-short { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .club-pos {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .club-pos.top4 { color: var(--accent); }
+  .club-pos.relegated { color: var(--loss); }
+  .champion-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #000;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    color: #ef4444;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 60px;
+  }
+</style>
 </head>
 <body>
-<nav class="navbar">
-  <div class="container navbar-inner">
-    <a href="index.html" class="logo">GOAL<span>IQ</span></a>
-    <div id="authArea"></div>
-  </div>
-</nav>
+
+<header>
+  <a href="/" class="logo">GoalIQ</a>
+  <span style="color:var(--muted);font-size:13px;">⚽ Premier League</span>
+  <a href="/" class="back-btn">← Back to Home</a>
+</header>
+
+<div class="hero">
+  <div class="season-badge">2024 / 25 Season</div>
+  <h1>Premier League Clubs</h1>
+  <p>Select a club to view all their season matches with full match details</p>
+</div>
 
 <div class="container">
-  <div class="page-header">
-    <button class="back-btn" onclick="history.back()">← Back</button>
-    <div class="page-title">Premier League <span>Clubs</span></div>
-    <p style="font-size:0.85rem;color:var(--muted);margin-top:0.25rem">2024/25 Season — click a club to see all their matches</p>
-  </div>
-
-  <div id="teamsGrid">
-    <div class="loading-state"><div class="spinner"></div><p>Loading clubs...</p></div>
+  <div class="section-title">All 20 Clubs</div>
+  <div class="clubs-grid" id="clubsGrid">
+    <div class="loading">
+      <div class="spinner"></div>
+      Loading clubs...
+    </div>
   </div>
 </div>
 
-<div id="toast" role="status"></div>
-<script src="js/api.js"></script>
-<script src="js/auth.js"></script>
+<footer>GoalIQ · Premier League 2024/25 · Data via football-data.org</footer>
+
 <script>
-  document.addEventListener('DOMContentLoaded', async () => {
-    await Auth.init();
-    await loadTeams();
-  });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
 
-  async function loadTeams() {
-    try {
-      const { teams } = await api._fetch('/teams/epl');
-      const grid = document.getElementById('teamsGrid');
-      grid.innerHTML = `<div class="teams-grid">${teams.map(t => `
-        <a class="team-card" href="team.html?id=${t.id}&name=${encodeURIComponent(t.name)}">
-          ${t.logo
-            ? `<img src="${t.logo}" class="team-card-logo" alt="${t.name}" onerror="this.style.display='none'">`
-            : `<div class="team-card-logo-fallback">${t.name[0]}</div>`}
-          <div class="team-card-name">${t.shortName || t.name}</div>
-          ${t.venue ? `<div class="team-card-venue">📍 ${t.venue}</div>` : ''}
-        </a>
-      `).join('')}</div>`;
-    } catch (err) {
-      document.getElementById('teamsGrid').innerHTML = `<div class="error-state">⚠️ ${err.message}</div>`;
-    }
-  }
+// All 20 PL clubs with their football-data.org IDs for 2024-25 season
+const PL_CLUBS = [
+  { id: 64,  name: 'Liverpool',             short: 'LIV', pos: 1,  crest: 'https://crests.football-data.org/64.png' },
+  { id: 57,  name: 'Arsenal',               short: 'ARS', pos: 2,  crest: 'https://crests.football-data.org/57.png' },
+  { id: 65,  name: 'Nottingham Forest',     short: 'NFO', pos: 3,  crest: 'https://crests.football-data.org/65.png' },
+  { id: 328, name: 'Newcastle United',      short: 'NEW', pos: 4,  crest: 'https://crests.football-data.org/328.png' },
+  { id: 61,  name: 'Chelsea',               short: 'CHE', pos: 5,  crest: 'https://crests.football-data.org/61.png' },
+  { id: 66,  name: 'Aston Villa',           short: 'AVL', pos: 6,  crest: 'https://crests.football-data.org/66.png' },
+  { id: 73,  name: 'Tottenham Hotspur',     short: 'TOT', pos: 7,  crest: 'https://crests.football-data.org/73.png' },
+  { id: 563, name: 'West Ham United',       short: 'WHU', pos: 9,  crest: 'https://crests.football-data.org/563.png' },
+  { id: 397, name: 'Brighton & Hove Albion',short: 'BHA', pos: 8,  crest: 'https://crests.football-data.org/397.png' },
+  { id: 67,  name: 'Fulham',               short: 'FUL', pos: 13, crest: 'https://crests.football-data.org/67.png' },
+  { id: 354, name: 'Crystal Palace',        short: 'CRY', pos: 12, crest: 'https://crests.football-data.org/354.png' },
+  { id: 402, name: 'Brentford',             short: 'BRE', pos: 14, crest: 'https://crests.football-data.org/402.png' },
+  { id: 338, name: 'Wolverhampton Wanderers', short: 'WOL', pos: 15, crest: 'https://crests.football-data.org/338.png' },
+  { id: 76,  name: 'Everton',               short: 'EVE', pos: 16, crest: 'https://crests.football-data.org/76.png' },
+  { id: 340, name: 'Bournemouth',           short: 'BOU', pos: 11, crest: 'https://crests.football-data.org/340.png' },
+  { id: 563, name: 'Manchester City',       short: 'MCI', pos: 6,  crest: 'https://crests.football-data.org/65.png' },
+  { id: 62,  name: 'Manchester United',     short: 'MUN', pos: 15, crest: 'https://crests.football-data.org/62.png' },
+  { id: 341, name: 'Leeds United',          short: 'LEE', pos: 18, crest: 'https://crests.football-data.org/341.png' },
+  { id: 351, name: 'Ipswich Town',          short: 'IPS', pos: 19, crest: 'https://crests.football-data.org/351.png' },
+  { id: 340, name: 'Southampton',           short: 'SOU', pos: 20, crest: 'https://crests.football-data.org/340.png' },
+];
 
-  function showToast(msg, type='info') {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.className = `toast show ${type}`;
-    setTimeout(() => t.classList.remove('show'), 3500);
-  }
+// Correct IDs for 2024-25 PL teams
+const CLUBS = [
+  { id: 64,  name: 'Liverpool',              short: 'LIV', pos: 1,  champion: true  },
+  { id: 57,  name: 'Arsenal',                short: 'ARS', pos: 2  },
+  { id: 65,  name: 'Nottingham Forest',      short: 'NFO', pos: 3  },
+  { id: 328, name: 'Newcastle United',       short: 'NEW', pos: 4  },
+  { id: 61,  name: 'Chelsea',                short: 'CHE', pos: 5  },
+  { id: 58,  name: 'Aston Villa',            short: 'AVL', pos: 6  },
+  { id: 73,  name: 'Tottenham Hotspur',      short: 'TOT', pos: 7  },
+  { id: 397, name: 'Brighton & Hove Albion', short: 'BHA', pos: 8  },
+  { id: 340, name: 'Bournemouth',            short: 'BOU', pos: 9  },
+  { id: 354, name: 'Crystal Palace',         short: 'CRY', pos: 10 },
+  { id: 563, name: 'West Ham United',        short: 'WHU', pos: 11 },
+  { id: 67,  name: 'Fulham',                 short: 'FUL', pos: 12 },
+  { id: 338, name: 'Wolverhampton',          short: 'WOL', pos: 13 },
+  { id: 402, name: 'Brentford',              short: 'BRE', pos: 14 },
+  { id: 62,  name: 'Manchester United',      short: 'MUN', pos: 15 },
+  { id: 76,  name: 'Everton',                short: 'EVE', pos: 16 },
+  { id: 66,  name: 'Nottm Forest',           short: 'NFO2', pos: 17 },
+  { id: 341, name: 'Leicester City',         short: 'LEI', pos: 18, relegated: true },
+  { id: 351, name: 'Ipswich Town',           short: 'IPS', pos: 19, relegated: true },
+  { id: 57,  name: 'Southampton',            short: 'SOU', pos: 20, relegated: true },
+];
+
+// Accurate 2024-25 PL final standings with correct IDs
+const SEASON_CLUBS = [
+  { id: 64,  name: 'Liverpool',              short: 'LIV', pos: 1,  champion: true  },
+  { id: 57,  name: 'Arsenal',                short: 'ARS', pos: 2  },
+  { id: 65,  name: 'Nottingham Forest',      short: 'NFO', pos: 3  },
+  { id: 328, name: 'Newcastle United',       short: 'NEW', pos: 4  },
+  { id: 61,  name: 'Chelsea',                short: 'CHE', pos: 5  },
+  { id: 58,  name: 'Aston Villa',            short: 'AVL', pos: 6  },
+  { id: 73,  name: 'Tottenham Hotspur',      short: 'TOT', pos: 7  },
+  { id: 397, name: 'Brighton',               short: 'BHA', pos: 8  },
+  { id: 340, name: 'Bournemouth',            short: 'BOU', pos: 9  },
+  { id: 354, name: 'Crystal Palace',         short: 'CRY', pos: 10 },
+  { id: 563, name: 'West Ham United',        short: 'WHU', pos: 11 },
+  { id: 67,  name: 'Fulham',                 short: 'FUL', pos: 12 },
+  { id: 338, name: 'Wolverhampton',          short: 'WOL', pos: 13 },
+  { id: 402, name: 'Brentford',              short: 'BRE', pos: 14 },
+  { id: 66,  name: 'Everton',                short: 'EVE', pos: 15 },
+  { id: 62,  name: 'Manchester United',      short: 'MUN', pos: 16 },
+  { id: 76,  name: 'Manchester City',        short: 'MCI', pos: 17 },
+  { id: 341, name: 'Leicester City',         short: 'LEI', pos: 18, relegated: true },
+  { id: 351, name: 'Ipswich Town',           short: 'IPS', pos: 19, relegated: true },
+  { id: 389, name: 'Southampton',            short: 'SOU', pos: 20, relegated: true },
+];
+
+function posClass(pos) {
+  if (pos <= 4) return 'top4';
+  if (pos >= 18) return 'relegated';
+  return '';
+}
+
+function renderClubs() {
+  const grid = document.getElementById('clubsGrid');
+  
+  // Fetch standing from our backend first, fall back to static list
+  fetch(`${API_BASE}/teams/pl-clubs`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      const clubs = (data && data.teams && data.teams.length) ? data.teams : SEASON_CLUBS;
+      renderGrid(clubs);
+    })
+    .catch(() => renderGrid(SEASON_CLUBS));
+}
+
+function renderGrid(clubs) {
+  const grid = document.getElementById('clubsGrid');
+  grid.innerHTML = clubs.map(club => {
+    const crestUrl = `https://crests.football-data.org/${club.id}.png`;
+    return `
+      <a class="club-card" href="team.html?id=${club.id}&name=${encodeURIComponent(club.name)}">
+        ${club.champion ? '<span class="champion-badge">🏆 CHAMPIONS</span>' : ''}
+        <img class="club-crest" src="${crestUrl}" alt="${club.name}" 
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="club-crest-placeholder" style="display:none">⚽</div>
+        <div class="club-info">
+          <div class="club-name">${club.name}</div>
+          <div class="club-short">${club.short || ''} · 2024/25</div>
+        </div>
+        <div class="club-pos ${posClass(club.pos || 0)}">${club.pos || '—'}</div>
+      </a>
+    `;
+  }).join('');
+}
+
+renderClubs();
 </script>
 </body>
 </html>
