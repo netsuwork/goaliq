@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GoalIQ — Team Matches</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .team-hero {
+      background: linear-gradient(180deg, rgba(26,122,60,0.15) 0%, transparent 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 0 1.5rem;
+    }
+    .team-hero-inner { display: flex; align-items: center; gap: 1.25rem; }
+    .team-hero-logo { width: 80px; height: 80px; object-fit: contain; }
+    .team-hero-logo-fallback {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: var(--surface2); display: flex;
+      align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: 700;
+    }
+    .team-hero-name { font-family: var(--font-head); font-size: 2.2rem; letter-spacing: 1px; }
+    .team-hero-sub { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+
+    /* Season stats */
+    .season-stats {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin: 1.25rem 0;
+    }
+    .season-stat {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0.6rem 1rem;
+      text-align: center; flex: 1; min-width: 70px;
+    }
+    .season-stat-val { font-family: var(--font-head); font-size: 1.5rem; }
+    .season-stat-val.green { color: var(--green-l); }
+    .season-stat-val.yellow { color: var(--accent); }
+    .season-stat-val.red { color: var(--red); }
+    .season-stat-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; }
+
+    /* Match list */
+    .match-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 8px;
+      cursor: pointer; transition: all 0.18s; overflow: hidden;
+    }
+    .match-item:hover { border-color: var(--green-l); }
+
+    .match-item-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.5rem 1rem; background: var(--surface2);
+      font-size: 0.72rem; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .match-item-md { font-weight: 600; color: var(--text); }
+
+    .match-item-main {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 1rem; padding: 0.85rem 1rem;
+    }
+    .match-item-team { display: flex; align-items: center; gap: 0.5rem; }
+    .match-item-team.away { flex-direction: row-reverse; }
+    .match-item-logo { width: 28px; height: 28px; object-fit: contain; }
+    .match-item-logo-fallback {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--surface3); display: flex;
+      align-items: center; justify-content: center; font-size: 0.8rem;
+    }
+    .match-item-name { font-size: 0.88rem; font-weight: 600; }
+    .match-item-team.away .match-item-name { text-align: right; }
+
+    .match-item-score-box { text-align: center; }
+    .match-item-score {
+      font-family: var(--font-head); font-size: 1.6rem;
+      letter-spacing: 2px; line-height: 1;
+    }
+    .match-item-score.win { color: var(--green-l); }
+    .match-item-score.loss { color: var(--red); }
+    .match-item-score.draw { color: var(--accent); }
+    .match-item-score.upcoming { color: var(--muted); font-size: 1rem; }
+    .match-item-result-label {
+      font-size: 0.65rem; color: var(--muted);
+      text-transform: uppercase; margin-top: 0.2rem;
+    }
+
+    /* Goal scorers preview */
+    .match-item-scorers {
+      padding: 0 1rem 0.6rem;
+      font-size: 0.75rem; color: var(--muted);
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+    }
+    .scorer-chip {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.15rem 0.4rem;
+    }
+
+    .view-detail-btn {
+      display: block; text-align: center;
+      padding: 0.4rem; font-size: 0.72rem;
+      color: var(--green-l); border-top: 1px solid var(--border);
+      transition: background 0.18s;
+    }
+    .view-detail-btn:hover { background: var(--surface2); }
+
+    /* Filter tabs */
+    .filter-tabs {
+      display: flex; gap: 4px; margin-bottom: 1rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 4px;
+    }
+    .filter-tab {
+      flex: 1; padding: 0.5rem; border: none; background: none;
+      color: var(--muted); font-size: 0.82rem; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.18s;
+    }
+    .filter-tab.active { background: var(--green); color: #fff; font-weight: 600; }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="index.html" class="logo">GOAL<span>IQ</span></a>
+    <div id="authArea"></div>
+  </div>
+</nav>
+
+<div class="team-hero">
+  <div class="container">
+    <button class="back-btn" onclick="history.back()">← Back to Clubs</button>
+    <div class="team-hero-inner" id="teamHero">
+      <div class="loading-state"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<main class="container" style="margin-top:1.5rem">
+  <div class="season-stats" id="seasonStats" style="display:none"></div>
+
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="filterMatches('all', this)">All</button>
+    <button class="filter-tab" onclick="filterMatches('finished', this)">Played</button>
+    <button class="filter-tab" onclick="filterMatches('upcoming', this)">Upcoming</button>
+    <button class="filter-tab" onclick="filterMatches('home', this)">Home</button>
+    <button class="filter-tab" onclick="filterMatches('away', this)">Away</button>
+  </div>
+
+  <div id="matchList">
+    <div class="loading-state"><div class="spinner"></div><p>Loading matches...</p></div>
+  </div>
+</main>
+
+<div id="toast" role="status"></div>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const teamId = params.get('id');
+  const teamName = params.get('name') || 'Team';
+  let allMatches = [];
+  let currentFilter = 'all';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await Auth.init();
+    if (!teamId) { document.getElementById('matchList').innerHTML = '<div class="error-state">No team selected.</div>'; return; }
+    await loadTeamMatches();
+  });
+
+  async function loadTeamMatches() {
+    try {
+      const { matches } = await api._fetch(`/teams/${teamId}/matches`);
+      allMatches = matches;
+      renderHero(matches);
+      renderStats(matches);
+      renderMatches(matches);
+    } catch (err) {
+      document.getElementById('matchList').innerHTML = `<div class="error-state">⚠️ ${err.message}</div>`;
+    }
+  }
+
+  function renderHero(matches) {
+    const team = matches.find(m => m.homeTeam.id == teamId)?.homeTeam ||
+                 matches.find(m => m.awayTeam.id == teamId)?.awayTeam || { name: teamName, logo: null };
+    document.getElementById('teamHero').innerHTML = `
+      ${team.logo
+        ? `<img src="${team.logo}" class="team-hero-logo" alt="${team.name}" onerror="this.style.display='none'">`
+        : `<div class="team-hero-logo-fallback">${team.name[0]}</div>`}
+      <div>
+        <div class="team-hero-name">${team.name}</div>
+        <div class="team-hero-sub">Premier League · 2024/25 Season · ${matches.length} matches</div>
+      </div>
+    `;
+  }
+
+  function renderStats(matches) {
+    const played = matches.filter(m => m.status === 'FINISHED');
+    let w = 0, d = 0, l = 0, gf = 0, ga = 0;
+    for (const m of played) {
+      const isHome = m.homeTeam.id == teamId;
+      const myG = isHome ? (m.score.home || 0) : (m.score.away || 0);
+      const theirG = isHome ? (m.score.away || 0) : (m.score.home || 0);
+      gf += myG; ga += theirG;
+      if (myG > theirG) w++;
+      else if (myG === theirG) d++;
+      else l++;
+    }
+    const pts = w * 3 + d;
+
+    document.getElementById('seasonStats').style.display = '';
+    document.getElementById('seasonStats').innerHTML = `
+      <div class="season-stat"><div class="season-stat-val">${played.length}</div><div class="season-stat-label">Played</div></div>
+      <div class="season-stat"><div class="season-stat-val green">${w}</div><div class="season-stat-label">Won</div></div>
+      <div class="season-stat"><div class="season-stat-val yellow">${d}</div><div class="season-stat-label">Drawn</div></div>
+      <div class="season-stat"><div class="season-stat-val red">${l}</div><div class="season-stat-label">Lost</div></div>
+      <div class="season-stat"><div class="season-stat-val">${gf}</div><div class="season-stat-label">Goals For</div></div>
+      <div class="season-stat"><div class="season-stat-val">${ga}</div><div class="season-stat-label">Goals Against</div></div>
+      <div class="season-stat"><div class="season-stat-val yellow">${pts}</div><div class="season-stat-label">Points</div></div>
+    `;
+  }
+
+  function filterMatches(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    let filtered = allMatches;
+    if (filter === 'finished') filtered = allMatches.filter(m => m.status === 'FINISHED');
+    else if (filter === 'upcoming') filtered = allMatches.filter(m => m.status === 'SCHEDULED' || m.status === 'TIMED');
+    else if (filter === 'home') filtered = allMatches.filter(m => m.homeTeam.id == teamId);
+    else if (filter === 'away') filtered = allMatches.filter(m => m.awayTeam.id == teamId);
+    renderMatches(filtered);
+  }
+
+  function renderMatches(matches) {
+    const list = document.getElementById('matchList');
+    if (!matches.length) { list.innerHTML = '<div class="empty-state">No matches found.</div>'; return; }
+
+    const sorted = [...matches].sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
+
+    list.innerHTML = sorted.map(m => {
+      const isHome = m.homeTeam.id == teamId;
+      const myGoals = isHome ? m.score.home : m.score.away;
+      const theirGoals = isHome ? m.score.away : m.score.home;
+      const finished = m.status === 'FINISHED';
+      const kd = new Date(m.kickoff);
+      const dateStr = kd.toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+      const timeStr = kd.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+      let scoreClass = 'upcoming';
+      let resultLabel = timeStr;
+      if (finished) {
+        if (myGoals > theirGoals) { scoreClass = 'win'; resultLabel = 'Win'; }
+        else if (myGoals === theirGoals) { scoreClass = 'draw'; resultLabel = 'Draw'; }
+        else { scoreClass = 'loss'; resultLabel = 'Loss'; }
+      }
+
+      const scoreDisplay = finished
+        ? `${isHome ? myGoals : myGoals} – ${isHome ? theirGoals : theirGoals}`
+        : 'vs';
+
+      // Goal scorers preview
+      const goals = m.goals || [];
+      const myGoalsList = goals.filter(g => {
+        const isMyTeamGoal = isHome ? g.team === m.homeTeam.name : g.team === m.awayTeam.name;
+        return isMyTeamGoal && g.type !== 'OWN_GOAL';
+      });
+      const ownGoals = goals.filter(g => {
+        const isOppGoal = isHome ? g.team === m.awayTeam.name : g.team === m.homeTeam.name;
+        return isOppGoal && g.type === 'OWN_GOAL';
+      });
+
+      const scorerChips = [...myGoalsList, ...ownGoals].map(g => `
+        <span class="scorer-chip">
+          ${g.type === 'OWN_GOAL' ? '🔴 OG' : '⚽'} ${g.scorer} ${g.minute ? g.minute + "'" : ''}
+          ${g.assist ? `<span style="color:var(--muted)">(${g.assist})</span>` : ''}
+        </span>
+      `).join('');
+
+      return `
+        <div class="match-item" onclick="goToMatchDetail(${m.id})">
+          <div class="match-item-header">
+            <span class="match-item-md">Matchday ${m.matchday || '—'}</span>
+            <span>${dateStr}</span>
+          </div>
+          <div class="match-item-main">
+            <div class="match-item-team">
+              ${m.homeTeam.logo
+                ? `<img src="${m.homeTeam.logo}" class="match-item-logo" onerror="this.style.display='none'">`
+                : `<div class="match-item-logo-fallback">${m.homeTeam.name[0]}</div>`}
+              <span class="match-item-name ${m.homeTeam.id == teamId ? 'active-team' : ''}">${m.homeTeam.name}</span>
+            </div>
+            <div class="match-item-score-box">
+              <div class="match-item-score ${scoreClass}">${scoreDisplay}</div>
+              <div class="match-item-result-label">${resultLabel}</div>
+            </div>
+            <div class="match-item-team away">
+              ${m.awayTeam.logo
+                ? `<img src="${m.awayTeam.logo}" class="match-item-logo" onerror="this.style.display='none'">`
+                : `<div class="match-item-logo-fallback">${m.awayTeam.name[0]}</div>`}
+              <span class="match-item-name ${m.awayTeam.id == teamId ? 'active-team' : ''}">${m.awayTeam.name}</span>
+            </div>
+          </div>
+          ${scorerChips ? `<div class="match-item-scorers">${scorerChips}</div>` : ''}
+          ${finished ? `<div class="view-detail-btn">View Full Match Details →</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function goToMatchDetail(matchId) {
+    window.location.href = `match-detail.html?id=${matchId}&teamId=${teamId}`;
+  }
+
+  function showToast(msg, type='info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `toast show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GoalIQ — Premier League Clubs</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .teams-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 1.5rem;
+    }
+    .team-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: block;
+    }
+    .team-card:hover {
+      border-color: var(--green-l);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .team-card-logo {
+      width: 64px; height: 64px;
+      object-fit: contain;
+      margin: 0 auto 0.75rem;
+      display: block;
+    }
+    .team-card-logo-fallback {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 700;
+      margin: 0 auto 0.75rem;
+    }
+    .team-card-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .team-card-venue {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+    .page-header {
+      padding: 2rem 0 1rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+    .page-title {
+      font-family: var(--font-head);
+      font-size: 2rem;
+      letter-spacing: 1px;
+    }
+    .page-title span { color: var(--green-l); }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="index.html" class="logo">GOAL<span>IQ</span></a>
+    <div id="authArea"></div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <button class="back-btn" onclick="history.back()">← Back</button>
+    <div class="page-title">Premier League <span>Clubs</span></div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-top:0.25rem">2024/25 Season — click a club to see all their matches</p>
+  </div>
+
+  <div id="teamsGrid">
+    <div class="loading-state"><div class="spinner"></div><p>Loading clubs...</p></div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    await Auth.init();
+    await loadTeams();
+  });
+
+  async function loadTeams() {
+    try {
+      const { teams } = await api._fetch('/teams/epl');
+      const grid = document.getElementById('teamsGrid');
+      grid.innerHTML = `<div class="teams-grid">${teams.map(t => `
+        <a class="team-card" href="team.html?id=${t.id}&name=${encodeURIComponent(t.name)}">
+          ${t.logo
+            ? `<img src="${t.logo}" class="team-card-logo" alt="${t.name}" onerror="this.style.display='none'">`
+            : `<div class="team-card-logo-fallback">${t.name[0]}</div>`}
+          <div class="team-card-name">${t.shortName || t.name}</div>
+          ${t.venue ? `<div class="team-card-venue">📍 ${t.venue}</div>` : ''}
+        </a>
+      `).join('')}</div>`;
+    } catch (err) {
+      document.getElementById('teamsGrid').innerHTML = `<div class="error-state">⚠️ ${err.message}</div>`;
+    }
+  }
+
+  function showToast(msg, type='info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `toast show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
