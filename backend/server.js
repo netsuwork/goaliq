@@ -43,6 +43,7 @@ app.use('/api/predictions', predictionRoutes);
 app.use('/api/standings',   standingsRoutes);
 app.use('/api/chat',        chatRoutes);
 app.use('/api/users',       userRoutes);
+app.use('/api/teams', teamRoutes);
  
 app.get('/api/health', (req, res) => {
   res.json({
