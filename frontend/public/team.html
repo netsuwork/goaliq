@@ -1,320 +1,352 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GoalIQ — Team Matches</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>"/>
-  <link rel="stylesheet" href="css/style.css"/>
-  <style>
-    .team-hero {
-      background: linear-gradient(180deg, rgba(26,122,60,0.15) 0%, transparent 100%);
-      border-bottom: 1px solid var(--border);
-      padding: 2rem 0 1.5rem;
-    }
-    .team-hero-inner { display: flex; align-items: center; gap: 1.25rem; }
-    .team-hero-logo { width: 80px; height: 80px; object-fit: contain; }
-    .team-hero-logo-fallback {
-      width: 80px; height: 80px; border-radius: 50%;
-      background: var(--surface2); display: flex;
-      align-items: center; justify-content: center;
-      font-size: 2rem; font-weight: 700;
-    }
-    .team-hero-name { font-family: var(--font-head); font-size: 2.2rem; letter-spacing: 1px; }
-    .team-hero-sub { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Club Matches — GoalIQ</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #12151c;
+    --card: #181c26;
+    --border: #1e2330;
+    --accent: #38bdf8;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --win: #22c55e;
+    --draw: #f59e0b;
+    --loss: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
 
-    /* Season stats */
-    .season-stats {
-      display: flex; gap: 8px; flex-wrap: wrap;
-      margin: 1.25rem 0;
-    }
-    .season-stat {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 0.6rem 1rem;
-      text-align: center; flex: 1; min-width: 70px;
-    }
-    .season-stat-val { font-family: var(--font-head); font-size: 1.5rem; }
-    .season-stat-val.green { color: var(--green-l); }
-    .season-stat-val.yellow { color: var(--accent); }
-    .season-stat-val.red { color: var(--red); }
-    .season-stat-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--accent); letter-spacing: 2px; text-decoration: none; }
+  .back-btn {
+    margin-left: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .back-btn:hover { color: var(--text); border-color: var(--accent); }
 
-    /* Match list */
-    .match-item {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); margin-bottom: 8px;
-      cursor: pointer; transition: all 0.18s; overflow: hidden;
-    }
-    .match-item:hover { border-color: var(--green-l); }
+  .club-hero {
+    background: linear-gradient(160deg, #0f172a, #1e293b);
+    border-bottom: 1px solid var(--border);
+    padding: 36px 24px;
+  }
+  .club-hero-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .hero-crest {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+  }
+  .hero-info h1 { font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 2px; }
+  .hero-info p { color: var(--muted); font-size: 14px; margin-top: 4px; }
 
-    .match-item-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0.5rem 1rem; background: var(--surface2);
-      font-size: 0.72rem; color: var(--muted);
-      border-bottom: 1px solid var(--border);
-    }
-    .match-item-md { font-weight: 600; color: var(--text); }
+  .stats-row {
+    display: flex;
+    gap: 20px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .stat-pill {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stat-pill strong { color: var(--text); }
+  .stat-pill span { color: var(--muted); }
 
-    .match-item-main {
-      display: grid; grid-template-columns: 1fr auto 1fr;
-      align-items: center; gap: 1rem; padding: 0.85rem 1rem;
-    }
-    .match-item-team { display: flex; align-items: center; gap: 0.5rem; }
-    .match-item-team.away { flex-direction: row-reverse; }
-    .match-item-logo { width: 28px; height: 28px; object-fit: contain; }
-    .match-item-logo-fallback {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: var(--surface3); display: flex;
-      align-items: center; justify-content: center; font-size: 0.8rem;
-    }
-    .match-item-name { font-size: 0.88rem; font-weight: 600; }
-    .match-item-team.away .match-item-name { text-align: right; }
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
 
-    .match-item-score-box { text-align: center; }
-    .match-item-score {
-      font-family: var(--font-head); font-size: 1.6rem;
-      letter-spacing: 2px; line-height: 1;
-    }
-    .match-item-score.win { color: var(--green-l); }
-    .match-item-score.loss { color: var(--red); }
-    .match-item-score.draw { color: var(--accent); }
-    .match-item-score.upcoming { color: var(--muted); font-size: 1rem; }
-    .match-item-result-label {
-      font-size: 0.65rem; color: var(--muted);
-      text-transform: uppercase; margin-top: 0.2rem;
-    }
+  .section-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-    /* Goal scorers preview */
-    .match-item-scorers {
-      padding: 0 1rem 0.6rem;
-      font-size: 0.75rem; color: var(--muted);
-      display: flex; gap: 0.5rem; flex-wrap: wrap;
-    }
-    .scorer-chip {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 4px; padding: 0.15rem 0.4rem;
-    }
+  .matches-list { display: flex; flex-direction: column; gap: 8px; }
 
-    .view-detail-btn {
-      display: block; text-align: center;
-      padding: 0.4rem; font-size: 0.72rem;
-      color: var(--green-l); border-top: 1px solid var(--border);
-      transition: background 0.18s;
-    }
-    .view-detail-btn:hover { background: var(--surface2); }
+  .match-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 90px 1fr auto 1fr 80px;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .match-row:hover { border-color: var(--accent); background: #1c2030; }
 
-    /* Filter tabs */
-    .filter-tabs {
-      display: flex; gap: 4px; margin-bottom: 1rem;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 4px;
-    }
-    .filter-tab {
-      flex: 1; padding: 0.5rem; border: none; background: none;
-      color: var(--muted); font-size: 0.82rem; border-radius: var(--radius-sm);
-      cursor: pointer; transition: all 0.18s;
-    }
-    .filter-tab.active { background: var(--green); color: #fff; font-weight: 600; }
-  </style>
+  .match-date { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .match-date strong { display: block; color: var(--text); font-size: 13px; }
+
+  .team-name { font-size: 14px; font-weight: 500; }
+  .team-name.home { text-align: right; }
+  .team-name.away { text-align: left; }
+  .team-name.highlight { color: var(--accent); }
+
+  .score-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 80px;
+  }
+  .score-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .score-divider { color: var(--muted); font-size: 18px; }
+
+  .result-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  .result-W { background: rgba(34,197,94,0.15); color: var(--win); border: 1px solid rgba(34,197,94,0.3); }
+  .result-D { background: rgba(245,158,11,0.15); color: var(--draw); border: 1px solid rgba(245,158,11,0.3); }
+  .result-L { background: rgba(239,68,68,0.12); color: var(--loss); border: 1px solid rgba(239,68,68,0.25); }
+  .result-U { background: var(--border); color: var(--muted); }
+
+  .goal-pills { font-size: 11px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+  .goal-pills .scorer { color: #94a3b8; }
+
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .competition-header {
+    background: rgba(56,189,248,0.06);
+    border: 1px solid rgba(56,189,248,0.15);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .no-matches { text-align: center; padding: 40px; color: var(--muted); font-size: 15px; }
+
+  footer { border-top: 1px solid var(--border); padding: 20px; text-align: center; color: var(--muted); font-size: 12px; margin-top: 48px; }
+
+  @media (max-width: 600px) {
+    .match-row { grid-template-columns: 70px 1fr auto 1fr 60px; gap: 6px; padding: 12px; }
+    .team-name { font-size: 12px; }
+    .score-num { font-size: 22px; }
+    .match-date { font-size: 11px; }
+    .goal-pills { display: none; }
+    .hero-crest { width: 56px; height: 56px; }
+    .hero-info h1 { font-size: 30px; }
+  }
+</style>
 </head>
 <body>
-<nav class="navbar">
-  <div class="container navbar-inner">
-    <a href="index.html" class="logo">GOAL<span>IQ</span></a>
-    <div id="authArea"></div>
-  </div>
-</nav>
 
-<div class="team-hero">
-  <div class="container">
-    <button class="back-btn" onclick="history.back()">← Back to Clubs</button>
-    <div class="team-hero-inner" id="teamHero">
-      <div class="loading-state"><div class="spinner"></div></div>
+<header>
+  <a href="/" class="logo">GoalIQ</a>
+  <span id="headerClub" style="color:var(--muted);font-size:13px;"></span>
+  <a href="teams.html" class="back-btn">← All Clubs</a>
+</header>
+
+<div class="club-hero">
+  <div class="club-hero-inner">
+    <img id="clubCrest" class="hero-crest" src="" alt="" onerror="this.style.display='none'">
+    <div class="hero-info">
+      <h1 id="clubName">Loading...</h1>
+      <p>Premier League 2024/25 · All Matches</p>
+      <div class="stats-row" id="statsRow"></div>
     </div>
   </div>
 </div>
 
-<main class="container" style="margin-top:1.5rem">
-  <div class="season-stats" id="seasonStats" style="display:none"></div>
-
-  <div class="filter-tabs">
-    <button class="filter-tab active" onclick="filterMatches('all', this)">All</button>
-    <button class="filter-tab" onclick="filterMatches('finished', this)">Played</button>
-    <button class="filter-tab" onclick="filterMatches('upcoming', this)">Upcoming</button>
-    <button class="filter-tab" onclick="filterMatches('home', this)">Home</button>
-    <button class="filter-tab" onclick="filterMatches('away', this)">Away</button>
+<div class="container">
+  <div class="section-label">All Matches This Season</div>
+  <div class="matches-list" id="matchesList">
+    <div class="loading"><div class="spinner"></div>Fetching matches...</div>
   </div>
+</div>
 
-  <div id="matchList">
-    <div class="loading-state"><div class="spinner"></div><p>Loading matches...</p></div>
-  </div>
-</main>
+<footer>GoalIQ · Data via football-data.org · 2024/25 Premier League</footer>
 
-<div id="toast" role="status"></div>
-<script src="js/api.js"></script>
-<script src="js/auth.js"></script>
 <script>
-  const params = new URLSearchParams(window.location.search);
-  const teamId = params.get('id');
-  const teamName = params.get('name') || 'Team';
-  let allMatches = [];
-  let currentFilter = 'all';
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
+const params = new URLSearchParams(window.location.search);
+const TEAM_ID = parseInt(params.get('id'));
+const TEAM_NAME = decodeURIComponent(params.get('name') || 'Club');
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    await Auth.init();
-    if (!teamId) { document.getElementById('matchList').innerHTML = '<div class="error-state">No team selected.</div>'; return; }
-    await loadTeamMatches();
+document.getElementById('clubName').textContent = TEAM_NAME;
+document.getElementById('headerClub').textContent = TEAM_NAME;
+document.getElementById('clubCrest').src = `https://crests.football-data.org/${TEAM_ID}.png`;
+document.title = `${TEAM_NAME} — GoalIQ`;
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return {
+    day: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+    date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+    year: d.getFullYear()
+  };
+}
+
+function getResult(match, teamId) {
+  const score = match.score?.fullTime;
+  if (!score || score.home === null) return 'U';
+  const isHome = match.homeTeam?.id === teamId;
+  const mine = isHome ? score.home : score.away;
+  const theirs = isHome ? score.away : score.home;
+  if (mine > theirs) return 'W';
+  if (mine === theirs) return 'D';
+  return 'L';
+}
+
+function buildGoalScorers(match, teamId) {
+  const goals = match.goals || [];
+  if (!goals.length) return '';
+  return goals
+    .filter(g => g.team?.id === teamId && g.type !== 'OWN_GOAL')
+    .map(g => {
+      const assist = g.assist?.name ? ` (${g.assist.name.split(' ').pop()})` : '';
+      return `${g.scorer?.name?.split(' ').pop() || '?'} ${g.minute}'${assist}`;
+    })
+    .join(' · ') || '';
+}
+
+function renderMatches(matches) {
+  const list = document.getElementById('matchesList');
+  if (!matches || !matches.length) {
+    list.innerHTML = '<div class="no-matches">No matches found for this season.</div>';
+    return;
+  }
+
+  // Sort by date descending (most recent first)
+  matches.sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+
+  // Calculate season stats
+  let W = 0, D = 0, L = 0, GF = 0, GA = 0;
+  matches.forEach(m => {
+    const score = m.score?.fullTime;
+    if (!score || score.home === null) return;
+    const isHome = m.homeTeam?.id === TEAM_ID;
+    const mine = isHome ? score.home : score.away;
+    const theirs = isHome ? score.away : score.home;
+    GF += mine; GA += theirs;
+    const res = getResult(m, TEAM_ID);
+    if (res === 'W') W++;
+    else if (res === 'D') D++;
+    else if (res === 'L') L++;
   });
 
-  async function loadTeamMatches() {
-    try {
-      const { matches } = await api._fetch(`/teams/${teamId}/matches`);
-      allMatches = matches;
-      renderHero(matches);
-      renderStats(matches);
-      renderMatches(matches);
-    } catch (err) {
-      document.getElementById('matchList').innerHTML = `<div class="error-state">⚠️ ${err.message}</div>`;
-    }
-  }
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-pill"><strong style="color:var(--win)">${W}</strong><span>Wins</span></div>
+    <div class="stat-pill"><strong style="color:var(--draw)">${D}</strong><span>Draws</span></div>
+    <div class="stat-pill"><strong style="color:var(--loss)">${L}</strong><span>Losses</span></div>
+    <div class="stat-pill"><strong>${GF}</strong><span>Goals For</span></div>
+    <div class="stat-pill"><strong>${GA}</strong><span>Goals Against</span></div>
+  `;
 
-  function renderHero(matches) {
-    const team = matches.find(m => m.homeTeam.id == teamId)?.homeTeam ||
-                 matches.find(m => m.awayTeam.id == teamId)?.awayTeam || { name: teamName, logo: null };
-    document.getElementById('teamHero').innerHTML = `
-      ${team.logo
-        ? `<img src="${team.logo}" class="team-hero-logo" alt="${team.name}" onerror="this.style.display='none'">`
-        : `<div class="team-hero-logo-fallback">${team.name[0]}</div>`}
-      <div>
-        <div class="team-hero-name">${team.name}</div>
-        <div class="team-hero-sub">Premier League · 2024/25 Season · ${matches.length} matches</div>
-      </div>
-    `;
-  }
+  list.innerHTML = matches.map(match => {
+    const score = match.score?.fullTime;
+    const hasScore = score && score.home !== null;
+    const isHome = match.homeTeam?.id === TEAM_ID;
+    const result = getResult(match, TEAM_ID);
+    const dateObj = formatDate(match.utcDate);
+    const goalStr = buildGoalScorers(match, TEAM_ID);
 
-  function renderStats(matches) {
-    const played = matches.filter(m => m.status === 'FINISHED');
-    let w = 0, d = 0, l = 0, gf = 0, ga = 0;
-    for (const m of played) {
-      const isHome = m.homeTeam.id == teamId;
-      const myG = isHome ? (m.score.home || 0) : (m.score.away || 0);
-      const theirG = isHome ? (m.score.away || 0) : (m.score.home || 0);
-      gf += myG; ga += theirG;
-      if (myG > theirG) w++;
-      else if (myG === theirG) d++;
-      else l++;
-    }
-    const pts = w * 3 + d;
+    const homeScore = hasScore ? score.home : '—';
+    const awayScore = hasScore ? score.away : '—';
 
-    document.getElementById('seasonStats').style.display = '';
-    document.getElementById('seasonStats').innerHTML = `
-      <div class="season-stat"><div class="season-stat-val">${played.length}</div><div class="season-stat-label">Played</div></div>
-      <div class="season-stat"><div class="season-stat-val green">${w}</div><div class="season-stat-label">Won</div></div>
-      <div class="season-stat"><div class="season-stat-val yellow">${d}</div><div class="season-stat-label">Drawn</div></div>
-      <div class="season-stat"><div class="season-stat-val red">${l}</div><div class="season-stat-label">Lost</div></div>
-      <div class="season-stat"><div class="season-stat-val">${gf}</div><div class="season-stat-label">Goals For</div></div>
-      <div class="season-stat"><div class="season-stat-val">${ga}</div><div class="season-stat-label">Goals Against</div></div>
-      <div class="season-stat"><div class="season-stat-val yellow">${pts}</div><div class="season-stat-label">Points</div></div>
-    `;
-  }
-
-  function filterMatches(filter, btn) {
-    currentFilter = filter;
-    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    let filtered = allMatches;
-    if (filter === 'finished') filtered = allMatches.filter(m => m.status === 'FINISHED');
-    else if (filter === 'upcoming') filtered = allMatches.filter(m => m.status === 'SCHEDULED' || m.status === 'TIMED');
-    else if (filter === 'home') filtered = allMatches.filter(m => m.homeTeam.id == teamId);
-    else if (filter === 'away') filtered = allMatches.filter(m => m.awayTeam.id == teamId);
-    renderMatches(filtered);
-  }
-
-  function renderMatches(matches) {
-    const list = document.getElementById('matchList');
-    if (!matches.length) { list.innerHTML = '<div class="empty-state">No matches found.</div>'; return; }
-
-    const sorted = [...matches].sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
-
-    list.innerHTML = sorted.map(m => {
-      const isHome = m.homeTeam.id == teamId;
-      const myGoals = isHome ? m.score.home : m.score.away;
-      const theirGoals = isHome ? m.score.away : m.score.home;
-      const finished = m.status === 'FINISHED';
-      const kd = new Date(m.kickoff);
-      const dateStr = kd.toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
-      const timeStr = kd.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
-
-      let scoreClass = 'upcoming';
-      let resultLabel = timeStr;
-      if (finished) {
-        if (myGoals > theirGoals) { scoreClass = 'win'; resultLabel = 'Win'; }
-        else if (myGoals === theirGoals) { scoreClass = 'draw'; resultLabel = 'Draw'; }
-        else { scoreClass = 'loss'; resultLabel = 'Loss'; }
-      }
-
-      const scoreDisplay = finished
-        ? `${isHome ? myGoals : myGoals} – ${isHome ? theirGoals : theirGoals}`
-        : 'vs';
-
-      // Goal scorers preview
-      const goals = m.goals || [];
-      const myGoalsList = goals.filter(g => {
-        const isMyTeamGoal = isHome ? g.team === m.homeTeam.name : g.team === m.awayTeam.name;
-        return isMyTeamGoal && g.type !== 'OWN_GOAL';
-      });
-      const ownGoals = goals.filter(g => {
-        const isOppGoal = isHome ? g.team === m.awayTeam.name : g.team === m.homeTeam.name;
-        return isOppGoal && g.type === 'OWN_GOAL';
-      });
-
-      const scorerChips = [...myGoalsList, ...ownGoals].map(g => `
-        <span class="scorer-chip">
-          ${g.type === 'OWN_GOAL' ? '🔴 OG' : '⚽'} ${g.scorer} ${g.minute ? g.minute + "'" : ''}
-          ${g.assist ? `<span style="color:var(--muted)">(${g.assist})</span>` : ''}
-        </span>
-      `).join('');
-
-      return `
-        <div class="match-item" onclick="goToMatchDetail(${m.id})">
-          <div class="match-item-header">
-            <span class="match-item-md">Matchday ${m.matchday || '—'}</span>
-            <span>${dateStr}</span>
-          </div>
-          <div class="match-item-main">
-            <div class="match-item-team">
-              ${m.homeTeam.logo
-                ? `<img src="${m.homeTeam.logo}" class="match-item-logo" onerror="this.style.display='none'">`
-                : `<div class="match-item-logo-fallback">${m.homeTeam.name[0]}</div>`}
-              <span class="match-item-name ${m.homeTeam.id == teamId ? 'active-team' : ''}">${m.homeTeam.name}</span>
-            </div>
-            <div class="match-item-score-box">
-              <div class="match-item-score ${scoreClass}">${scoreDisplay}</div>
-              <div class="match-item-result-label">${resultLabel}</div>
-            </div>
-            <div class="match-item-team away">
-              ${m.awayTeam.logo
-                ? `<img src="${m.awayTeam.logo}" class="match-item-logo" onerror="this.style.display='none'">`
-                : `<div class="match-item-logo-fallback">${m.awayTeam.name[0]}</div>`}
-              <span class="match-item-name ${m.awayTeam.id == teamId ? 'active-team' : ''}">${m.awayTeam.name}</span>
-            </div>
-          </div>
-          ${scorerChips ? `<div class="match-item-scorers">${scorerChips}</div>` : ''}
-          ${finished ? `<div class="view-detail-btn">View Full Match Details →</div>` : ''}
+    return `
+      <a class="match-row" href="match-detail.html?id=${match.id}&teamId=${TEAM_ID}">
+        <div class="match-date">
+          <strong>${dateObj.day} ${dateObj.date}</strong>
+          ${match.competition?.name || 'Premier League'}
         </div>
-      `;
-    }).join('');
-  }
+        <div>
+          <div class="team-name home ${isHome ? 'highlight' : ''}">${match.homeTeam?.shortName || match.homeTeam?.name || '?'}</div>
+          ${goalStr && isHome ? `<div class="goal-pills scorer">${goalStr}</div>` : ''}
+        </div>
+        <div class="score-box">
+          <span class="score-num">${homeScore}</span>
+          <span class="score-divider">–</span>
+          <span class="score-num">${awayScore}</span>
+        </div>
+        <div>
+          <div class="team-name away ${!isHome ? 'highlight' : ''}">${match.awayTeam?.shortName || match.awayTeam?.name || '?'}</div>
+          ${goalStr && !isHome ? `<div class="goal-pills scorer">${goalStr}</div>` : ''}
+        </div>
+        <div class="result-badge result-${result}">${result === 'U' ? 'TBD' : result}</div>
+      </a>
+    `;
+  }).join('');
+}
 
-  function goToMatchDetail(matchId) {
-    window.location.href = `match-detail.html?id=${matchId}&teamId=${teamId}`;
+async function loadMatches() {
+  try {
+    const res = await fetch(`${API_BASE}/teams/${TEAM_ID}/season-matches`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderMatches(data.matches || []);
+  } catch (err) {
+    document.getElementById('matchesList').innerHTML = `
+      <div style="text-align:center;padding:40px;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+        <div>Could not load matches. Check your internet or API key.</div>
+        <div style="font-size:12px;margin-top:8px;color:#4b5563">${err.message}</div>
+      </div>`;
   }
+}
 
-  function showToast(msg, type='info') {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.className = `toast show ${type}`;
-    setTimeout(() => t.classList.remove('show'), 3500);
-  }
+loadMatches();
 </script>
 </body>
 </html>
