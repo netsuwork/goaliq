@@ -13,6 +13,7 @@ const predictionRoutes = require('./routes/predictions');
 const standingsRoutes  = require('./routes/standings');
 const chatRoutes       = require('./routes/chat');
 const userRoutes       = require('./routes/users');
+const teamRoutes = require('./routes/teams');
 const { syncMatches, syncStandings, syncLive } = require('./services/footballSync');
  
 const app = express();
