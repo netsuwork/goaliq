@@ -14,6 +14,7 @@ const standingsRoutes  = require('./routes/standings');
 const chatRoutes       = require('./routes/chat');
 const userRoutes       = require('./routes/users');
 const teamRoutes = require('./routes/teams');
+app.use('/api/teams', teamRoutes);
 const { syncMatches, syncStandings, syncLive } = require('./services/footballSync');
  
 const app = express();
