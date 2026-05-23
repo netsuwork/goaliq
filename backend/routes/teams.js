@@ -1,9 +1,10 @@
 const express = require('express');
 const axios = require('axios');
+const Match = require('../models/Match');
 const router = express.Router();
 
-const FD_BASE = 'https://api.football-data.org/v4';
-const getHeaders = () => ({ 'X-Auth-Token': process.env.FOOTBALL_DATA_KEY });
+const BASE = 'https://api.football-data.org/v4';
+const HEADERS = { 'X-Auth-Token': process.env.FOOTBALL_DATA_KEY };
 
 // Simple in-memory cache to respect 10 req/min free tier limit
 const _cache = new Map();
