@@ -4,13 +4,13 @@ const Standing = require('../models/Standing');
 
 const API_KEY = process.env.FOOTBALL_DATA_KEY;
 const BASE = 'https://api.football-data.org/v4';
-const headers = { 'X-Auth-Token': API_KEY };
+const HEADERS = { 'X-Auth-Token': API_KEY };
 
 const LEAGUES = {
   epl: { id: 'PL', name: 'Premier League' },
 };
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function wait(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
 
 function mapStatus(status) {
   if (['IN_PLAY','PAUSED','HALFTIME','LIVE'].includes(status)) return 'live';
@@ -20,48 +20,62 @@ function mapStatus(status) {
 }
 
 function getScore(match) {
+  var ft = match.score && match.score.fullTime ? match.score.fullTime : {};
+  var ht = match.score && match.score.halfTime ? match.score.halfTime : {};
   return {
-    home: match.score?.fullTime?.home ?? match.score?.halfTime?.home ?? null,
-    away: match.score?.fullTime?.away ?? match.score?.halfTime?.away ?? null,
+    home: ft.home !== undefined ? ft.home : (ht.home !== undefined ? ht.home : null),
+    away: ft.away !== undefined ? ft.away : (ht.away !== undefined ? ht.away : null),
   };
 }
 
 function parseGoals(match) {
-  const goals = [];
+  var goals = [];
   if (!match.goals || !Array.isArray(match.goals)) return goals;
-  for (const g of match.goals) {
+  for (var i = 0; i < match.goals.length; i++) {
+    var g = match.goals[i];
     goals.push({
-      minute:   g.minute,
+      minute:    g.minute || null,
       extraTime: g.injuryTime || null,
-      team:     g.team?.name || '',
-      scorer:   g.scorer?.name || 'Unknown',
-      assist:   g.assist?.name || null,
-      type:     g.type || 'REGULAR', // REGULAR, OWN_GOAL, PENALTY
+      team:      g.team ? g.team.name : '',
+      teamId:    g.team ? g.team.id : null,
+      scorer:    g.scorer ? g.scorer.name : 'Unknown',
+      assist:    g.assist ? g.assist.name : null,
+      type:      g.type || 'REGULAR',
     });
   }
   return goals;
 }
 
 async function syncMatches() {
-  if (!API_KEY) { console.log('No FOOTBALL_DATA_KEY'); return; }
+  if (!API_KEY) {
+    console.log('No FOOTBALL_DATA_KEY — skipping sync');
+    return;
+  }
 
-  for (const [leagueKey, league] of Object.entries(LEAGUES)) {
+  var leagueKeys = Object.keys(LEAGUES);
+  for (var i = 0; i < leagueKeys.length; i++) {
+    var leagueKey = leagueKeys[i];
+    var league = LEAGUES[leagueKey];
+
     try {
       console.log('Fetching matches for ' + league.name);
 
-      const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
-      const dateTo   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
+      var dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
+      var dateTo   = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
 
-      const { data } = await axios.get(BASE + '/competitions/' + league.id + '/matches', {
-        headers,
-        params: { dateFrom, dateTo },
+      var resp = await axios.get(BASE + '/competitions/' + league.id + '/matches', {
+        headers: HEADERS,
+        params: { dateFrom: dateFrom, dateTo: dateTo },
       });
 
-      const matches = data.matches || [];
+      var matches = resp.data.matches || [];
       console.log('Got ' + matches.length + ' matches for ' + league.name);
 
-      for (const match of matches) {
-        const goals = parseGoals(match);
+      for (var j = 0; j < matches.length; j++) {
+        var match = matches[j];
+        var goals = parseGoals(match);
+        var score = getScore(match);
+
         await Match.findOneAndUpdate(
           { externalId: String(match.id) },
           {
@@ -79,9 +93,9 @@ async function syncMatches() {
             awayTeamLogo:  match.awayTeam.crest || '',
             kickoff:       new Date(match.utcDate),
             status:        mapStatus(match.status),
-            score:         getScore(match),
-            goals,
-            referee:       match.referees?.[0]?.name || '',
+            score:         score,
+            goals:         goals,
+            referee:       match.referees && match.referees[0] ? match.referees[0].name : '',
             venue:         match.venue || '',
           },
           { upsert: true, new: true }
@@ -92,44 +106,60 @@ async function syncMatches() {
       await wait(2000);
 
     } catch (err) {
-      console.error('Failed ' + league.name + ': ' + (err.response?.data?.message || err.message));
+      console.error('Failed ' + league.name + ': ' + (err.response && err.response.data ? err.response.data.message : err.message));
     }
   }
 }
 
 async function syncStandings() {
-  if (!API_KEY) { console.log('No FOOTBALL_DATA_KEY'); return; }
+  if (!API_KEY) {
+    console.log('No FOOTBALL_DATA_KEY — skipping standings sync');
+    return;
+  }
 
-  for (const [leagueKey, league] of Object.entries(LEAGUES)) {
+  var leagueKeys = Object.keys(LEAGUES);
+  for (var i = 0; i < leagueKeys.length; i++) {
+    var leagueKey = leagueKeys[i];
+    var league = LEAGUES[leagueKey];
+
     try {
-      const { data } = await axios.get(BASE + '/competitions/' + league.id + '/standings', { headers });
-      const raw = data.standings?.[0]?.table || [];
-      const table = raw.map(e => ({
-        position: e.position,
-        team:     e.team.name,
-        teamId:   e.team.id,
-        teamLogo: e.team.crest || '',
-        played:   e.playedGames,
-        won:      e.won,
-        drawn:    e.draw,
-        lost:     e.lost,
-        gf:       e.goalsFor,
-        ga:       e.goalsAgainst,
-        gd:       e.goalDifference,
-        points:   e.points,
-        form:     e.form || '',
-      }));
+      var resp = await axios.get(BASE + '/competitions/' + league.id + '/standings', { headers: HEADERS });
+      var raw = resp.data.standings && resp.data.standings[0] ? resp.data.standings[0].table : [];
+
+      var table = raw.map(function(e) {
+        return {
+          position: e.position,
+          team:     e.team.name,
+          teamLogo: e.team.crest || '',
+          played:   e.playedGames,
+          won:      e.won,
+          drawn:    e.draw,
+          lost:     e.lost,
+          gf:       e.goalsFor,
+          ga:       e.goalsAgainst,
+          gd:       e.goalDifference,
+          points:   e.points,
+          form:     e.form || '',
+        };
+      });
 
       await Standing.findOneAndUpdate(
         { league: leagueKey },
-        { league: leagueKey, leagueName: league.name, season: '2024', table, updatedAt: new Date() },
+        {
+          league:     leagueKey,
+          leagueName: league.name,
+          season:     '2024',
+          table:      table,
+          updatedAt:  new Date(),
+        },
         { upsert: true, new: true }
       );
+
       console.log('Synced standings for ' + league.name);
       await wait(2000);
 
     } catch (err) {
-      console.error('Standings failed: ' + (err.response?.data?.message || err.message));
+      console.error('Standings failed: ' + (err.response && err.response.data ? err.response.data.message : err.message));
     }
   }
 }
@@ -137,28 +167,33 @@ async function syncStandings() {
 async function syncLive() {
   if (!API_KEY) return;
 
-  for (const [leagueKey, league] of Object.entries(LEAGUES)) {
+  var leagueKeys = Object.keys(LEAGUES);
+  for (var i = 0; i < leagueKeys.length; i++) {
+    var leagueKey = leagueKeys[i];
+    var league = LEAGUES[leagueKey];
+
     try {
-      const { data } = await axios.get(BASE + '/competitions/' + league.id + '/matches', {
-        headers,
+      var resp = await axios.get(BASE + '/competitions/' + league.id + '/matches', {
+        headers: HEADERS,
         params: { status: 'LIVE' },
       });
 
-      for (const match of data.matches || []) {
-        const goals = parseGoals(match);
+      var matches = resp.data.matches || [];
+      for (var j = 0; j < matches.length; j++) {
+        var match = matches[j];
         await Match.findOneAndUpdate(
           { externalId: String(match.id) },
           {
             status: 'live',
             score:  getScore(match),
-            goals,
+            goals:  parseGoals(match),
           },
           { upsert: false }
         );
       }
 
-      if (data.matches?.length > 0) {
-        console.log('Updated ' + data.matches.length + ' live matches');
+      if (matches.length > 0) {
+        console.log('Updated ' + matches.length + ' live matches for ' + league.name);
       }
     } catch (err) {
       console.error('Live sync failed: ' + err.message);
