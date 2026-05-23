@@ -1,235 +1,372 @@
-
-const express = require('express');
-const axios = require('axios');
-const router = express.Router();
-
-const FD_BASE = 'https://api.football-data.org/v4';
-const getHeaders = () => ({ 'X-Auth-Token': process.env.FOOTBALL_DATA_KEY });
-
-// Simple in-memory cache to respect 10 req/min free tier limit
-const _cache = new Map();
-function cacheGet(key) {
-  const hit = _cache.get(key);
-  if (!hit) return null;
-  if (Date.now() > hit.expires) { _cache.delete(key); return null; }
-  return hit.data;
-}
-function cacheSet(key, data, ttlMs) {
-  _cache.set(key, { data, expires: Date.now() + ttlMs });
-}
-
-// ─── GET /api/teams/epl ───────────────────────────────────────────────────────
-// Returns all 20 PL clubs for 2024/25 season
-router.get('/epl', async (req, res) => {
-  const KEY = 'epl-teams';
-  const cached = cacheGet(KEY);
-  if (cached) return res.json(cached);
-
-  try {
-    const { data } = await axios.get(`${FD_BASE}/competitions/PL/teams`, {
-      headers: getHeaders(),
-      params: { season: 2024 },
-    });
-
-    const teams = (data.teams || []).map(t => ({
-      id: t.id,
-      name: t.name,
-      shortName: t.shortName || t.tla || t.name,
-      tla: t.tla,
-      logo: t.crest,                        // football-data.org v4 uses "crest"
-      venue: t.venue || null,
-    }));
-
-    const result = { teams };
-    cacheSet(KEY, result, 24 * 60 * 60 * 1000); // 24hr — clubs don't change
-    res.json(result);
-  } catch (err) {
-    console.error('[teams/epl]', err.response?.status, err.message);
-    res.status(err.response?.status || 500).json({ error: err.message });
-  }
-});
-
-// ─── GET /api/teams/:teamId/matches ──────────────────────────────────────────
-// All 2024/25 PL matches for one club, with goal scorers & assists
-router.get('/:teamId/matches', async (req, res) => {
-  const teamId = parseInt(req.params.teamId);
-  if (!teamId) return res.status(400).json({ error: 'Invalid team ID' });
-
-  const KEY = `team-matches-${teamId}`;
-  const cached = cacheGet(KEY);
-  if (cached) return res.json(cached);
-
-  try {
-    const { data } = await axios.get(`${FD_BASE}/teams/${teamId}/matches`, {
-      headers: getHeaders(),
-      params: {
-        competitions: 'PL',
-        season: 2024,
-        limit: 40,
-      },
-    });
-
-    const matches = (data.matches || []).map(m => {
-      const ft = m.score?.fullTime || {};
-      const ht = m.score?.halfTime || {};
-
-      // Map goals — football-data.org v4 includes goals array on team match list
-      const goals = (m.goals || []).map(g => ({
-        minute: g.minute,
-        extraTime: g.extraTime || null,
-        type: g.type,                        // REGULAR, PENALTY, OWN_GOAL
-        team: g.team?.name || null,
-        teamId: g.team?.id || null,
-        scorer: g.scorer?.name || null,
-        assist: g.assist?.name || null,
-      }));
-
-      return {
-        id: m.id,
-        kickoff: m.utcDate,
-        status: m.status,                    // FINISHED, SCHEDULED, TIMED, IN_PLAY
-        matchday: m.matchday,
-        competition: m.competition?.name || 'Premier League',
-        homeTeam: {
-          id: m.homeTeam?.id,
-          name: m.homeTeam?.name,
-          shortName: m.homeTeam?.shortName || m.homeTeam?.tla || m.homeTeam?.name,
-          logo: m.homeTeam?.crest,
-        },
-        awayTeam: {
-          id: m.awayTeam?.id,
-          name: m.awayTeam?.name,
-          shortName: m.awayTeam?.shortName || m.awayTeam?.tla || m.awayTeam?.name,
-          logo: m.awayTeam?.crest,
-        },
-        score: {
-          home: ft.home ?? null,
-          away: ft.away ?? null,
-          halfTime: { home: ht.home ?? null, away: ht.away ?? null },
-        },
-        goals,
-      };
-    });
-
-    const result = { matches };
-    // Cache 1hr for in-season, 6hr once all finished
-    const allFinished = matches.every(m => m.status === 'FINISHED');
-    cacheSet(KEY, result, allFinished ? 6 * 60 * 60 * 1000 : 60 * 60 * 1000);
-    res.json(result);
-  } catch (err) {
-    console.error('[teams/:id/matches]', err.response?.status, err.message);
-    res.status(err.response?.status || 500).json({ error: err.message });
-  }
-});
-
-// ─── GET /api/teams/:teamId/match/:matchId ────────────────────────────────────
-// Full match detail: score, HT, lineups, formation, goals, cards, subs, referee
-router.get('/:teamId/match/:matchId', async (req, res) => {
-  const matchId = parseInt(req.params.matchId);
-  if (!matchId) return res.status(400).json({ error: 'Invalid match ID' });
-
-  const KEY = `match-detail-${matchId}`;
-  const cached = cacheGet(KEY);
-  if (cached) return res.json(cached);
-
-  try {
-    const { data: m } = await axios.get(`${FD_BASE}/matches/${matchId}`, {
-      headers: getHeaders(),
-    });
-
-    const ft = m.score?.fullTime || {};
-    const ht = m.score?.halfTime || {};
-
-    // football-data.org v4: lineup/bench live on m.homeTeam.lineup and m.homeTeam.bench
-    function mapPlayers(arr) {
-      return (arr || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        position: p.position || null,
-        shirtNumber: p.shirtNumber || null,
-      }));
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GoalIQ — Match Detail</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .match-hero {
+      background: linear-gradient(180deg,rgba(26,122,60,0.15) 0%,transparent 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 0 1.5rem;
+    }
+    .hero-teams {
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 1.5rem; margin-bottom: 1rem;
+    }
+    .hero-team { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+    .hero-logo { width: 72px; height: 72px; object-fit: contain; }
+    .hero-logo-fallback {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--surface2); display: flex;
+      align-items: center; justify-content: center; font-size: 1.8rem;
+    }
+    .hero-name { font-family: var(--font-head); font-size: 1.4rem; text-align: center; }
+    .hero-formation { font-size: 0.8rem; color: var(--green-l); font-weight: 600; }
+    .hero-score-box { text-align: center; }
+    .hero-score { font-family: var(--font-head); font-size: 3rem; color: var(--accent); letter-spacing: 4px; line-height: 1; }
+    .hero-ht { font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem; }
+    .hero-status { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.25rem; }
+    .hero-meta { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .hero-pill {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 0.3rem 0.8rem;
+      font-size: 0.75rem; color: var(--muted);
     }
 
-    const match = {
-      id: m.id,
-      kickoff: m.utcDate,
-      status: m.status,
-      matchday: m.matchday,
-      competition: m.competition?.name || 'Premier League',
-      venue: m.venue || null,
-      referee: m.referees?.[0]?.name || null,
+    /* Goals timeline */
+    .goals-timeline { margin: 1.5rem 0; }
+    .timeline-title { font-family: var(--font-head); font-size: 1.1rem; letter-spacing: 0.5px; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .timeline-title::before { content:''; width:3px; height:1.1em; background:var(--green-l); border-radius:2px; }
 
-      homeTeam: {
-        id: m.homeTeam?.id,
-        name: m.homeTeam?.name,
-        shortName: m.homeTeam?.shortName || m.homeTeam?.tla || m.homeTeam?.name,
-        logo: m.homeTeam?.crest,
-        formation: m.homeTeam?.formation || null,
-        lineup: {
-          formation: m.homeTeam?.formation || null,
-          startXI: mapPlayers(m.homeTeam?.lineup),
-          bench: mapPlayers(m.homeTeam?.bench),
-        },
-      },
+    .goal-row {
+      display: grid; grid-template-columns: 1fr 60px 1fr;
+      align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;
+    }
+    .goal-home { text-align: right; }
+    .goal-away { text-align: left; }
+    .goal-info { font-size: 0.85rem; }
+    .goal-scorer-name { font-weight: 600; color: var(--text); }
+    .goal-assist-name { font-size: 0.72rem; color: var(--muted); }
+    .goal-type-tag {
+      display: inline-block; font-size: 0.65rem; padding: 0.1rem 0.35rem;
+      border-radius: 3px; margin-left: 0.25rem; vertical-align: middle;
+    }
+    .goal-type-tag.penalty { background: rgba(59,130,246,0.2); color: #60a5fa; }
+    .goal-type-tag.og { background: rgba(232,65,66,0.2); color: var(--red); }
+    .goal-minute-badge {
+      text-align: center;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.25rem 0.4rem;
+      font-size: 0.75rem; font-weight: 700; color: var(--accent);
+    }
 
-      awayTeam: {
-        id: m.awayTeam?.id,
-        name: m.awayTeam?.name,
-        shortName: m.awayTeam?.shortName || m.awayTeam?.tla || m.awayTeam?.name,
-        logo: m.awayTeam?.crest,
-        formation: m.awayTeam?.formation || null,
-        lineup: {
-          formation: m.awayTeam?.formation || null,
-          startXI: mapPlayers(m.awayTeam?.lineup),
-          bench: mapPlayers(m.awayTeam?.bench),
-        },
-      },
+    /* Lineup */
+    .lineups-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    @media(max-width:600px) { .lineups-grid { grid-template-columns: 1fr; } }
 
-      score: {
-        home: ft.home ?? null,
-        away: ft.away ?? null,
-        halfTime: { home: ht.home ?? null, away: ht.away ?? null },
-      },
+    .lineup-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .lineup-header {
+      background: var(--surface2); padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .lineup-team-name { font-weight: 700; font-size: 0.9rem; }
+    .lineup-formation {
+      background: var(--green); color: #fff;
+      font-size: 0.75rem; font-weight: 700;
+      padding: 0.2rem 0.6rem; border-radius: 20px;
+    }
+    .lineup-section-label {
+      font-size: 0.68rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 0.5rem 1rem 0.25rem;
+      font-weight: 600;
+    }
+    .player-row {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.5rem 1rem; border-bottom: 1px solid var(--border);
+      font-size: 0.84rem; transition: background 0.15s;
+    }
+    .player-row:hover { background: var(--surface2); }
+    .player-row:last-child { border-bottom: none; }
+    .player-number {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--surface3); display: flex;
+      align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+      color: var(--accent);
+    }
+    .player-name { flex: 1; font-weight: 500; }
+    .player-position {
+      font-size: 0.68rem; color: var(--muted);
+      background: var(--bg); padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+    }
+    .bench-row { opacity: 0.7; }
 
-      // Goals — v4 returns goals array with team object
-      goals: (m.goals || []).map(g => ({
-        minute: g.minute,
-        extraTime: g.extraTime || null,
-        type: g.type,                        // REGULAR / PENALTY / OWN_GOAL
-        teamId: g.team?.id || null,
-        team: g.team?.name || null,
-        scorer: g.scorer?.name || null,
-        assist: g.assist?.name || null,
-      })),
+    /* Cards & Subs */
+    .events-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    @media(max-width:600px) { .events-grid { grid-template-columns: 1fr; } }
 
-      // Bookings — v4: bookings array with player.name, team.name, card
-      bookings: (m.bookings || []).map(b => ({
-        minute: b.minute,
-        player: b.player?.name || null,
-        team: b.team?.name || null,
-        teamId: b.team?.id || null,
-        card: b.card,                        // YELLOW_CARD / RED_CARD / YELLOW_RED_CARD
-      })),
+    .event-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+    }
+    .event-card-title {
+      font-family: var(--font-head); font-size: 1rem;
+      letter-spacing: 0.5px; margin-bottom: 0.75rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .event-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.82rem; padding: 0.35rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .event-row:last-child { border-bottom: none; }
+    .event-minute { color: var(--accent); font-weight: 700; min-width: 35px; font-size: 0.75rem; }
+    .event-team { font-size: 0.68rem; color: var(--muted); }
+    .yellow-card { display: inline-block; width: 10px; height: 14px; background: #fbbf24; border-radius: 2px; }
+    .red-card { display: inline-block; width: 10px; height: 14px; background: var(--red); border-radius: 2px; }
 
-      // Substitutions — v4: substitutions array with playerOut.name, playerIn.name, team.name
-      substitutions: (m.substitutions || []).map(s => ({
-        minute: s.minute,
-        playerIn: s.playerIn?.name || null,
-        playerOut: s.playerOut?.name || null,
-        team: s.team?.name || null,
-        teamId: s.team?.id || null,
-      })),
-    };
+    .no-data { font-size: 0.82rem; color: var(--muted); text-align: center; padding: 1rem; }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <a href="index.html" class="logo">GOAL<span>IQ</span></a>
+    <div id="authArea"></div>
+  </div>
+</nav>
 
-    const result = { match };
-    // Finished matches cached 24hr; live/upcoming 5min
-    const ttl = m.status === 'FINISHED' ? 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
-    cacheSet(KEY, result, ttl);
-    res.json(result);
-  } catch (err) {
-    console.error('[teams/:id/match/:matchId]', err.response?.status, err.message);
-    res.status(err.response?.status || 500).json({ error: err.message });
+<div class="match-hero" id="matchHero">
+  <div class="container">
+    <button class="back-btn" onclick="history.back()">← Back</button>
+    <div class="loading-state"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<main class="container" id="matchContent" style="display:none">
+
+  <!-- Goals Timeline -->
+  <div class="goals-timeline">
+    <div class="timeline-title">⚽ Goals</div>
+    <div id="goalsTimeline"></div>
+  </div>
+
+  <!-- Lineups -->
+  <div class="timeline-title" style="margin-top:1.5rem">👕 Line-ups</div>
+  <div class="lineups-grid" id="lineupsGrid"></div>
+
+  <!-- Bookings & Subs -->
+  <div class="events-grid" id="eventsGrid"></div>
+
+</main>
+
+<div id="toast" role="status"></div>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const matchId = params.get('id');
+  const teamId = params.get('teamId');
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await Auth.init();
+    if (!matchId) return;
+    await loadMatch();
+  });
+
+  async function loadMatch() {
+    try {
+      const { match } = await api._fetch(`/teams/${teamId}/match/${matchId}`);
+      renderHero(match);
+      renderGoals(match);
+      renderLineups(match);
+      renderEvents(match);
+      document.getElementById('matchContent').style.display = '';
+    } catch (err) {
+      document.getElementById('matchHero').innerHTML += `<div class="error-state">⚠️ ${err.message}</div>`;
+    }
   }
-});
 
-module.exports = router;
+  function renderHero(m) {
+    const kd = new Date(m.kickoff);
+    const dateStr = kd.toLocaleString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const finished = m.status === 'FINISHED';
+    const scoreHtml = finished
+      ? `<div class="hero-score">${m.score.home} – ${m.score.away}</div>
+         ${m.score.halfTime?.home !== null ? `<div class="hero-ht">HT: ${m.score.halfTime.home} – ${m.score.halfTime.away}</div>` : ''}
+         <div class="hero-status" style="color:var(--muted)">Full Time</div>`
+      : `<div class="hero-score" style="font-size:1.5rem;color:var(--muted)">vs</div>`;
+
+    document.getElementById('matchHero').innerHTML = `
+      <div class="container">
+        <button class="back-btn" onclick="history.back()">← Back</button>
+        <div class="hero-teams">
+          <div class="hero-team">
+            ${m.homeTeam.logo ? `<img src="${m.homeTeam.logo}" class="hero-logo" onerror="this.style.display='none'">` : `<div class="hero-logo-fallback">${m.homeTeam.name[0]}</div>`}
+            <div class="hero-name">${m.homeTeam.name}</div>
+            ${m.homeTeam.formation ? `<div class="hero-formation">${m.homeTeam.formation}</div>` : ''}
+          </div>
+          <div class="hero-score-box">${scoreHtml}</div>
+          <div class="hero-team">
+            ${m.awayTeam.logo ? `<img src="${m.awayTeam.logo}" class="hero-logo" onerror="this.style.display='none'">` : `<div class="hero-logo-fallback">${m.awayTeam.name[0]}</div>`}
+            <div class="hero-name">${m.awayTeam.name}</div>
+            ${m.awayTeam.formation ? `<div class="hero-formation">${m.awayTeam.formation}</div>` : ''}
+          </div>
+        </div>
+        <div class="hero-meta">
+          <span class="hero-pill">📅 ${dateStr}</span>
+          <span class="hero-pill">🏟️ Matchday ${m.matchday || '—'}</span>
+          ${m.venue ? `<span class="hero-pill">📍 ${m.venue}</span>` : ''}
+          ${m.referee ? `<span class="hero-pill">👨‍⚖️ ${m.referee}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderGoals(m) {
+    const el = document.getElementById('goalsTimeline');
+    if (!m.goals || !m.goals.length) {
+      el.innerHTML = '<div class="no-data">No goals recorded for this match.</div>';
+      return;
+    }
+
+    const sorted = [...m.goals].sort((a, b) => (a.minute || 0) - (b.minute || 0));
+    el.innerHTML = sorted.map(g => {
+      const isHome = g.teamId === m.homeTeam.id || g.team === m.homeTeam.name;
+      const typeTag = g.type === 'PENALTY'
+        ? '<span class="goal-type-tag penalty">P</span>'
+        : g.type === 'OWN_GOAL'
+        ? '<span class="goal-type-tag og">OG</span>'
+        : '';
+
+      const goalHtml = `
+        <div class="goal-info">
+          <div class="goal-scorer-name">⚽ ${g.scorer}${typeTag}</div>
+          ${g.assist ? `<div class="goal-assist-name">🅰️ ${g.assist}</div>` : ''}
+        </div>
+      `;
+
+      return `
+        <div class="goal-row">
+          <div class="goal-home">${isHome ? goalHtml : ''}</div>
+          <div class="goal-minute-badge">${g.minute}'${g.extraTime ? '+'+g.extraTime : ''}</div>
+          <div class="goal-away">${!isHome ? goalHtml : ''}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderLineups(m) {
+    const grid = document.getElementById('lineupsGrid');
+
+    function teamLineup(team) {
+      const lineup = team.lineup;
+      if (!lineup || (!lineup.startXI?.length && !lineup.bench?.length)) {
+        return `
+          <div class="lineup-card">
+            <div class="lineup-header">
+              <span class="lineup-team-name">${team.name}</span>
+              ${team.formation ? `<span class="lineup-formation">${team.formation}</span>` : ''}
+            </div>
+            <div class="no-data">Lineup not available for this match.</div>
+          </div>`;
+      }
+
+      const starters = (lineup.startXI || []).map(p => `
+        <div class="player-row">
+          <div class="player-number">${p.shirtNumber || '—'}</div>
+          <div class="player-name">${p.name}</div>
+          <div class="player-position">${p.position || ''}</div>
+        </div>
+      `).join('');
+
+      const bench = (lineup.bench || []).map(p => `
+        <div class="player-row bench-row">
+          <div class="player-number">${p.shirtNumber || '—'}</div>
+          <div class="player-name">${p.name}</div>
+          <div class="player-position">${p.position || ''}</div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="lineup-card">
+          <div class="lineup-header">
+            <span class="lineup-team-name">${team.name}</span>
+            ${lineup.formation || team.formation ? `<span class="lineup-formation">${lineup.formation || team.formation}</span>` : ''}
+          </div>
+          <div class="lineup-section-label">Starting XI</div>
+          ${starters}
+          ${bench ? `<div class="lineup-section-label">Bench</div>${bench}` : ''}
+        </div>
+      `;
+    }
+
+    grid.innerHTML = teamLineup(m.homeTeam) + teamLineup(m.awayTeam);
+  }
+
+  function renderEvents(m) {
+    const grid = document.getElementById('eventsGrid');
+
+    // Bookings
+    const bookingsHtml = m.bookings && m.bookings.length
+      ? m.bookings.map(b => `
+          <div class="event-row">
+            <span class="event-minute">${b.minute}'</span>
+            <span>${b.card === 'RED_CARD' ? '<span class="red-card"></span>' : '<span class="yellow-card"></span>'}</span>
+            <div>
+              <div style="font-weight:600">${b.player}</div>
+              <div class="event-team">${b.team}</div>
+            </div>
+          </div>
+        `).join('')
+      : '<div class="no-data">No cards</div>';
+
+    // Substitutions
+    const subsHtml = m.substitutions && m.substitutions.length
+      ? m.substitutions.map(s => `
+          <div class="event-row">
+            <span class="event-minute">${s.minute}'</span>
+            <span>🔄</span>
+            <div>
+              <div style="font-weight:600;color:var(--green-l)">▲ ${s.playerIn}</div>
+              <div style="color:var(--red)">▼ ${s.playerOut}</div>
+              <div class="event-team">${s.team}</div>
+            </div>
+          </div>
+        `).join('')
+      : '<div class="no-data">No substitutions recorded</div>';
+
+    grid.innerHTML = `
+      <div class="event-card">
+        <div class="event-card-title">🟨 Bookings</div>
+        ${bookingsHtml}
+      </div>
+      <div class="event-card">
+        <div class="event-card-title">🔄 Substitutions</div>
+        ${subsHtml}
+      </div>
+    `;
+  }
+
+  function showToast(msg, type='info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `toast show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
