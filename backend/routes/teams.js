@@ -265,4 +265,114 @@ router.get('/:teamId/match/:matchId', async (req, res) => {
   }
 });
 
+router.get('/debug/:matchId', async (req, res) => {
+  const matchId = req.params.matchId;
+  const afKey   = process.env.FOOTBALL_API_KEY;
+  const fdKey   = process.env.FOOTBALL_DATA_KEY;
+  const result  = { matchId, fdKey: !!fdKey, afKey: !!afKey, steps: [] };
+
+  // Step 1: FD single match
+  try {
+    const { data } = await axios.get(FD_BASE + '/matches/' + matchId,
+      { headers: FD_HEADERS, timeout: 8000 });
+    result.steps.push({
+      step: 'FD /matches/:id',
+      status: 'ok',
+      goals: (data.goals||[]).length,
+      bookings: (data.bookings||[]).length,
+      kickoff: data.utcDate,
+      matchday: data.matchday,
+      homeTeam: data.homeTeam?.name,
+      awayTeam: data.awayTeam?.name,
+    });
+    const matchday = data.matchday;
+    const kickoff  = data.utcDate;
+
+    // Step 2: FD competition matchday
+    try {
+      const { data: md } = await axios.get(
+        FD_BASE + '/competitions/PL/matches',
+        { headers: FD_HEADERS, params: { matchday, season: 2024 }, timeout: 8000 }
+      );
+      const found = (md.matches||[]).find(x => x.id === Number(matchId));
+      result.steps.push({
+        step: 'FD /competitions/PL/matches?matchday=' + matchday,
+        status: 'ok',
+        totalMatches: (md.matches||[]).length,
+        foundThisMatch: !!found,
+        goals: found ? (found.goals||[]).length : 'n/a',
+        bookings: found ? (found.bookings||[]).length : 'n/a',
+      });
+    } catch(e) {
+      result.steps.push({ step: 'FD matchday', status: 'error', error: e.response?.data || e.message });
+    }
+
+    // Step 3: AF fixtures by date
+    if (afKey) {
+      const date = new Date(kickoff).toISOString().slice(0,10);
+      try {
+        const { data: af } = await axios.get(AF_BASE + '/fixtures', {
+          headers: { 'x-apisports-key': afKey },
+          params: { league: 39, season: 2024, date },
+          timeout: 7000,
+        });
+        const fixtures = af.response || [];
+        result.steps.push({
+          step: 'AF /fixtures?date=' + date,
+          status: 'ok',
+          errors: af.errors,
+          results: af.results,
+          fixturesFound: fixtures.length,
+          fixtures: fixtures.map(f => f.teams.home.name + ' vs ' + f.teams.away.name + ' (id:' + f.fixture.id + ')'),
+        });
+
+        // Step 4: AF events if fixture found
+        const homeFirst = data.homeTeam.name.split(' ')[0].toLowerCase();
+        const awayFirst = data.awayTeam.name.split(' ')[0].toLowerCase();
+        const fixture = fixtures.find(f => {
+          const fh = f.teams.home.name.toLowerCase();
+          const fa = f.teams.away.name.toLowerCase();
+          return (fh.includes(homeFirst)||homeFirst.includes(fh.split(' ')[0])) &&
+                 (fa.includes(awayFirst)||awayFirst.includes(fa.split(' ')[0]));
+        });
+
+        if (fixture) {
+          const fid = fixture.fixture.id;
+          try {
+            const { data: ev } = await axios.get(AF_BASE + '/fixtures/events', {
+              headers: { 'x-apisports-key': afKey },
+              params: { fixture: fid }, timeout: 7000,
+            });
+            const goals = (ev.response||[]).filter(e => e.type==='Goal');
+            const cards = (ev.response||[]).filter(e => e.type==='Card');
+            const subs  = (ev.response||[]).filter(e => e.type==='subst');
+            result.steps.push({
+              step: 'AF /fixtures/events?fixture=' + fid,
+              status: 'ok',
+              errors: ev.errors,
+              goals: goals.length,
+              cards: cards.length,
+              subs:  subs.length,
+              firstGoal: goals[0] || null,
+            });
+          } catch(e) {
+            result.steps.push({ step: 'AF events', status: 'error', error: e.response?.data || e.message });
+          }
+        } else {
+          result.steps.push({ step: 'AF fixture match', status: 'not_found', homeFirst, awayFirst });
+        }
+      } catch(e) {
+        result.steps.push({ step: 'AF fixtures', status: 'error', error: e.response?.data || e.message });
+      }
+    } else {
+      result.steps.push({ step: 'AF', status: 'skipped', reason: 'No FOOTBALL_API_KEY' });
+    }
+
+  } catch(e) {
+    result.steps.push({ step: 'FD /matches/:id', status: 'error', error: e.response?.data || e.message });
+  }
+
+  res.json(result);
+});
+
 module.exports = router;
