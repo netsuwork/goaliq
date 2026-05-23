@@ -121,114 +121,113 @@ router.get('/:teamId/matches', async (req, res) => {
   }
 });
 
-// ─── GET /api/teams/:teamId/match/:matchId ────────────────────────────────────
-// Full match detail: score, HT, lineups, formation, goals, cards, subs, referee
+// GET /api/teams/:teamId/match/:matchId
 router.get('/:teamId/match/:matchId', async (req, res) => {
-  const matchId = parseInt(req.params.matchId);
-  if (!matchId) return res.status(400).json({ error: 'Invalid match ID' });
-
-  const KEY = `match-detail-${matchId}`;
-  const cached = cacheGet(KEY);
-  if (cached) return res.json(cached);
-
   try {
-    const { data: m } = await axios.get(`${FD_BASE}/matches/${matchId}`, {
-      headers: getHeaders(),
-    });
+    const { matchId } = req.params;
 
-    const ft = m.score?.fullTime || {};
-    const ht = m.score?.halfTime || {};
+    // First try our own database
+    const Match = require('../models/Match');
+    const dbMatch = await Match.findOne({ externalId: String(matchId) });
 
-    // football-data.org v4: lineup/bench live on m.homeTeam.lineup and m.homeTeam.bench
-    function mapPlayers(arr) {
-      return (arr || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        position: p.position || null,
-        shirtNumber: p.shirtNumber || null,
-      }));
+    if (dbMatch) {
+      return res.json({
+        match: {
+          id: dbMatch.externalId,
+          matchday: dbMatch.matchday,
+          kickoff: dbMatch.kickoff,
+          status: dbMatch.status === 'finished' ? 'FINISHED' : dbMatch.status,
+          venue: dbMatch.venue || '',
+          referee: dbMatch.referee || '',
+          homeTeam: {
+            id: dbMatch.homeTeamId,
+            name: dbMatch.homeTeam,
+            logo: dbMatch.homeTeamLogo,
+            formation: null,
+            lineup: null,
+          },
+          awayTeam: {
+            id: dbMatch.awayTeamId,
+            name: dbMatch.awayTeam,
+            logo: dbMatch.awayTeamLogo,
+            formation: null,
+            lineup: null,
+          },
+          score: {
+            home: dbMatch.score?.home ?? null,
+            away: dbMatch.score?.away ?? null,
+            halfTime: { home: null, away: null },
+          },
+          goals: dbMatch.goals || [],
+          bookings: [],
+          substitutions: [],
+        }
+      });
     }
 
-    const match = {
-      id: m.id,
-      kickoff: m.utcDate,
-      status: m.status,
-      matchday: m.matchday,
-      competition: m.competition?.name || 'Premier League',
-      venue: m.venue || null,
-      referee: m.referees?.[0]?.name || null,
+    // Fallback to external API
+    const { data } = await axios.get(`${BASE}/matches/${matchId}`, { headers: HEADERS });
+    const m = data;
 
-      homeTeam: {
-        id: m.homeTeam?.id,
-        name: m.homeTeam?.name,
-        shortName: m.homeTeam?.shortName || m.homeTeam?.tla || m.homeTeam?.name,
-        logo: m.homeTeam?.crest,
-        formation: m.homeTeam?.formation || null,
-        lineup: {
-          formation: m.homeTeam?.formation || null,
-          startXI: mapPlayers(m.homeTeam?.lineup),
-          bench: mapPlayers(m.homeTeam?.bench),
+    const goals = (m.goals || []).map(g => ({
+      minute: g.minute,
+      extraTime: g.injuryTime || null,
+      team: g.team?.name,
+      teamId: g.team?.id,
+      scorer: g.scorer?.name || 'Unknown',
+      assist: g.assist?.name || null,
+      type: g.type || 'REGULAR',
+    }));
+
+    res.json({
+      match: {
+        id: m.id,
+        matchday: m.matchday,
+        kickoff: m.utcDate,
+        status: m.status,
+        venue: m.venue || '',
+        referee: m.referees?.[0]?.name || '',
+        homeTeam: {
+          id: m.homeTeam.id,
+          name: m.homeTeam.name,
+          logo: m.homeTeam.crest,
+          formation: m.homeTeam.formation || null,
+          lineup: null,
         },
-      },
-
-      awayTeam: {
-        id: m.awayTeam?.id,
-        name: m.awayTeam?.name,
-        shortName: m.awayTeam?.shortName || m.awayTeam?.tla || m.awayTeam?.name,
-        logo: m.awayTeam?.crest,
-        formation: m.awayTeam?.formation || null,
-        lineup: {
-          formation: m.awayTeam?.formation || null,
-          startXI: mapPlayers(m.awayTeam?.lineup),
-          bench: mapPlayers(m.awayTeam?.bench),
+        awayTeam: {
+          id: m.awayTeam.id,
+          name: m.awayTeam.name,
+          logo: m.awayTeam.crest,
+          formation: m.awayTeam.formation || null,
+          lineup: null,
         },
-      },
-
-      score: {
-        home: ft.home ?? null,
-        away: ft.away ?? null,
-        halfTime: { home: ht.home ?? null, away: ht.away ?? null },
-      },
-
-      // Goals — v4 returns goals array with team object
-      goals: (m.goals || []).map(g => ({
-        minute: g.minute,
-        extraTime: g.extraTime || null,
-        type: g.type,                        // REGULAR / PENALTY / OWN_GOAL
-        teamId: g.team?.id || null,
-        team: g.team?.name || null,
-        scorer: g.scorer?.name || null,
-        assist: g.assist?.name || null,
-      })),
-
-      // Bookings — v4: bookings array with player.name, team.name, card
-      bookings: (m.bookings || []).map(b => ({
-        minute: b.minute,
-        player: b.player?.name || null,
-        team: b.team?.name || null,
-        teamId: b.team?.id || null,
-        card: b.card,                        // YELLOW_CARD / RED_CARD / YELLOW_RED_CARD
-      })),
-
-      // Substitutions — v4: substitutions array with playerOut.name, playerIn.name, team.name
-      substitutions: (m.substitutions || []).map(s => ({
-        minute: s.minute,
-        playerIn: s.playerIn?.name || null,
-        playerOut: s.playerOut?.name || null,
-        team: s.team?.name || null,
-        teamId: s.team?.id || null,
-      })),
-    };
-
-    const result = { match };
-    // Finished matches cached 24hr; live/upcoming 5min
-    const ttl = m.status === 'FINISHED' ? 24 * 60 * 60 * 1000 : 5 * 60 * 1000;
-    cacheSet(KEY, result, ttl);
-    res.json(result);
+        score: {
+          home: m.score?.fullTime?.home ?? null,
+          away: m.score?.fullTime?.away ?? null,
+          halfTime: {
+            home: m.score?.halfTime?.home ?? null,
+            away: m.score?.halfTime?.away ?? null,
+          },
+        },
+        goals,
+        bookings: (m.bookings || []).map(b => ({
+          minute: b.minute,
+          team: b.team?.name,
+          player: b.player?.name,
+          card: b.card,
+        })),
+        substitutions: (m.substitutions || []).map(s => ({
+          minute: s.minute,
+          team: s.team?.name,
+          playerOut: s.playerOut?.name,
+          playerIn: s.playerIn?.name,
+        })),
+      }
+    });
   } catch (err) {
-    console.error('[teams/:id/match/:matchId]', err.response?.status, err.message);
-    res.status(err.response?.status || 500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = router;
