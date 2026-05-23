@@ -1,107 +1,45 @@
-const express = require('express');
-const Match = require('../models/Match');
-const { protect, adminOnly } = require('../middleware/auth');
+// Add this route to backend/routes/matches.js (or wherever your match routes live)
+// It proxies the football-data.org match detail endpoint so the API key stays on the server.
 
+const express = require('express');
+const axios = require('axios');
+const Match = require('../models/Match');
 const router = express.Router();
 
-// GET /api/matches?league=epl&status=upcoming&matchday=38&limit=20
-router.get('/', async (req, res) => {
+const FOOTBALL_BASE = 'https://api.football-data.org/v4';
+const FOOTBALL_HEADERS = { 'X-Auth-Token': process.env.FOOTBALL_DATA_KEY };
+
+// ── existing routes above ──
+
+// GET /api/matches/:id/detail
+// Fetches full match detail (goals, lineups, bookings, subs) from football-data.org
+router.get('/:id/detail', async (req, res) => {
   try {
-    const { league, status, matchday, limit = 20, page = 1 } = req.query;
-    const filter = {};
-    if (league) filter.league = league;
-    if (status) filter.status = status;
-    if (matchday) filter.matchday = Number(matchday);
+    const matchId = req.params.id;
 
-    const total = await Match.countDocuments(filter);
-    const matches = await Match.find(filter)
-      .sort({ kickoff: 1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit))
-      .populate('aiPrediction');
+    // First try to find the football-data match ID from our DB
+    let footballMatchId = matchId;
 
-    res.json({ matches, total, page: Number(page), pages: Math.ceil(total / limit) });
+    // If it looks like a MongoDB ObjectId, look up the footballDataId
+    if (/^[a-f\d]{24}$/i.test(matchId)) {
+      const dbMatch = await Match.findById(matchId);
+      if (!dbMatch) return res.status(404).json({ error: 'Match not found' });
+      footballMatchId = dbMatch.footballDataId || dbMatch.externalId || dbMatch.matchId;
+      if (!footballMatchId) {
+        return res.status(400).json({ error: 'No football-data match ID stored for this match' });
+      }
+    }
+
+    const { data } = await axios.get(
+      `${FOOTBALL_BASE}/matches/${footballMatchId}`,
+      { headers: FOOTBALL_HEADERS }
+    );
+
+    res.json({ match: data });
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/matches/live
-router.get('/live', async (req, res) => {
-  try {
-    const matches = await Match.find({ status: 'live' })
-      .sort({ kickoff: -1 })
-      .populate('aiPrediction');
-    res.json({ matches });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/matches/results?league=epl&matchday=38
-router.get('/results', async (req, res) => {
-  try {
-    const { league, matchday, limit = 20 } = req.query;
-    const filter = { status: 'finished' };
-    if (league) filter.league = league;
-    if (matchday) filter.matchday = Number(matchday);
-
-    const matches = await Match.find(filter)
-      .sort({ matchday: -1, kickoff: -1 })
-      .limit(Number(limit))
-      .populate('aiPrediction');
-
-    // Get available matchdays
-    const matchdays = await Match.distinct('matchday', { league: league || 'epl', status: 'finished' });
-    matchdays.sort((a, b) => b - a);
-
-    res.json({ matches, matchdays });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/matches/matchdays?league=epl
-router.get('/matchdays', async (req, res) => {
-  try {
-    const { league = 'epl' } = req.query;
-    const matchdays = await Match.distinct('matchday', { league });
-    matchdays.sort((a, b) => a - b);
-    res.json({ matchdays });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/matches/:id
-router.get('/:id', async (req, res) => {
-  try {
-    const match = await Match.findById(req.params.id).populate('aiPrediction');
-    if (!match) return res.status(404).json({ error: 'Match not found.' });
-    res.json({ match });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/matches (admin only)
-router.post('/', protect, adminOnly, async (req, res) => {
-  try {
-    const match = await Match.create(req.body);
-    res.status(201).json({ match });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// PATCH /api/matches/:id (admin only)
-router.patch('/:id', protect, adminOnly, async (req, res) => {
-  try {
-    const match = await Match.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!match) return res.status(404).json({ error: 'Match not found.' });
-    res.json({ match });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Match detail fetch error:', err.message);
+    const status = err.response?.status || 500;
+    res.status(status).json({ error: err.message });
   }
 });
 
